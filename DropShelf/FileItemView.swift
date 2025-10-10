@@ -12,7 +12,7 @@ final class FileItemView: NSView, NSDraggingSource {
     private let removeButton = NSButton()
     private let vstack = NSStackView()
 
-    // Дадим интринсик, чтобы NSStackView всегда имел ненулевой размер
+    // Интринсик — чтобы карточка всегда имела видимый размер
     override var intrinsicContentSize: NSSize { NSSize(width: 120, height: 115) }
 
     // MARK: - Init
@@ -23,7 +23,6 @@ final class FileItemView: NSView, NSDraggingSource {
         wantsLayer = true
         layer?.cornerRadius = 10
         layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.12).cgColor
-
         setupUI()
     }
 
@@ -44,13 +43,17 @@ final class FileItemView: NSView, NSDraggingSource {
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.translatesAutoresizingMaskIntoConstraints = false
 
-        // Название файла
+        // Название файла — ТРАНКАЦИЯ по середине + однострочный режим
         nameLabel.stringValue = fileURL.lastPathComponent
         nameLabel.font = .systemFont(ofSize: 10)
         nameLabel.textColor = .white
         nameLabel.alignment = .center
         nameLabel.lineBreakMode = .byTruncatingMiddle
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        // Разрешаем «сжимать» лейбл по горизонтали, чтобы он уходил в троеточие,
+        // а не раздвигал контейнер
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        nameLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         // Вертикальный стек по центру карточки
         vstack.orientation = .vertical
@@ -73,7 +76,8 @@ final class FileItemView: NSView, NSDraggingSource {
         removeButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(removeButton)
 
-        // Констрейнты — ЦЕНТР содержимого и минимальные размеры
+        // Констрейнты — центр содержимого и ограничение ширины текста,
+        // чтобы длинные имена сокращались внутри карточки
         NSLayoutConstraint.activate([
             vstack.centerXAnchor.constraint(equalTo: centerXAnchor),
             vstack.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -83,11 +87,16 @@ final class FileItemView: NSView, NSDraggingSource {
             imageView.widthAnchor.constraint(equalToConstant: 48),
             imageView.heightAnchor.constraint(equalToConstant: 48),
 
+            // Лейбл не шире карточки (минус поля), иначе будет вылезать
+            nameLabel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -16),
+
+            // Крестик
             removeButton.topAnchor.constraint(equalTo: topAnchor, constant: 4),
             removeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
             removeButton.widthAnchor.constraint(equalToConstant: 18),
             removeButton.heightAnchor.constraint(equalToConstant: 18),
 
+            // Минимальные размеры самой карточки
             widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
             heightAnchor.constraint(greaterThanOrEqualToConstant: 115)
         ])
@@ -96,16 +105,14 @@ final class FileItemView: NSView, NSDraggingSource {
     @objc private func removeTapped() { onRemove?() }
 
     // MARK: - Drag out (перетаскивание файла наружу)
-    // Используем file URL как pasteboard writer — нам НЕ нужен NSFilePromiseProvider,
-    // файл уже существует, мы его не создаём. Это решает проблему с удалением с диска.
     override func mouseDown(with event: NSEvent) {
         guard let window = self.window else { return }
 
-        // Пишем в pasteboard сам файл (NSURL)
+        // Пишем в pasteboard сам файл (NSURL) — файл уже существует
         let writer = fileURL as NSURL
         let draggingItem = NSDraggingItem(pasteboardWriter: writer)
 
-        // Красивая картинка перетаскивания — снимок карточки
+        // Превью перетаскивания — снимок карточки
         let dragImage = snapshotImage()
         let location = convert(event.locationInWindow, from: nil)
         let frame = NSRect(x: location.x - dragImage.size.width / 2,
@@ -118,7 +125,6 @@ final class FileItemView: NSView, NSDraggingSource {
         session.animatesToStartingPositionsOnCancelOrFail = true
         session.draggingFormation = .default
 
-        // Чтобы клик не «застревал» на кнопке удаления
         window.makeFirstResponder(self)
     }
 
@@ -137,13 +143,11 @@ final class FileItemView: NSView, NSDraggingSource {
 
     // MARK: - NSDraggingSource
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        // Разрешаем и copy, и move — Finder обычно делает copy
         return [.copy, .move]
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        // Если drop состоялся (не был отменён), удаляем элемент С ТОЛЬКО ПОЛКИ (UI),
-        // файл на диске не трогаем
+        // Если drop состоялся — удаляем элемент из полки (файл на диске не трогаем)
         if !operation.isEmpty {
             onRemove?()
         }
