@@ -16,15 +16,12 @@ class ShelfViewController: NSViewController {
     }
 
     private func setupUI() {
-        // Drop-target слой
+        // Drop target (фон/blur как раньше можно оставить в твоём коде)
         let dropTargetView = DropTargetView(frame: view.bounds)
         dropTargetView.autoresizingMask = [.width, .height]
-        dropTargetView.onFilesDropped = { [weak self] urls in
-            urls.forEach { self?.addFile(url: $0) }
-        }
+        dropTargetView.onFilesDropped = { [weak self] urls in urls.forEach { self?.addFile(url: $0) } }
         view.addSubview(dropTargetView)
 
-        // Фон с blur
         let visualEffect = NSVisualEffectView(frame: view.bounds)
         visualEffect.material = .hudWindow
         visualEffect.blendingMode = .behindWindow
@@ -41,7 +38,7 @@ class ShelfViewController: NSViewController {
         visualEffect.layer?.addSublayer(darkOverlay)
         dropTargetView.addSubview(visualEffect)
 
-        // Заголовок в центре
+        // Центровой лейбл
         titleLabel = NSTextField(labelWithString: "Drop files here")
         titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
         titleLabel.textColor = NSColor(white: 0.9, alpha: 0.85)
@@ -49,21 +46,29 @@ class ShelfViewController: NSViewController {
         titleLabel.backgroundColor = .clear
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         dropTargetView.addSubview(titleLabel)
-
         NSLayoutConstraint.activate([
             titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
 
-        // Наша «веерная» стопка карточек (все центры совпадают, верхняя без поворота)
+        // Стопка
         overlapView = OverlapStackView(frame: view.bounds)
         overlapView.autoresizingMask = [.width, .height]
         overlapView.wantsLayer = true
         overlapView.layer?.masksToBounds = false
         overlapView.maxVisible = 4
-        overlapView.baseAngles = [-12, -6, 6, 12] // можно подрегулировать
+        overlapView.baseAngles = [-12, -6, 6, 12]
         dropTargetView.addSubview(overlapView)
         overlapView.isHidden = true
+
+        // dnd прямо по стопке (поверх иконок)
+        overlapView.onFilesDropped = { [weak self] urls in
+            urls.forEach { self?.addFile(url: $0) }
+        }
+        // очистка после группового дропа наружу
+        overlapView.onRemoveAll = { [weak self] in
+            self?.clearAll()
+        }
     }
 
     private func setupDragAndDrop() {
@@ -83,30 +88,19 @@ class ShelfViewController: NSViewController {
         guard !fileItems.contains(url) else { return }
         fileItems.append(url)
 
-        // Показать стопку, скрыть заголовок
         titleLabel.isHidden = true
         overlapView.isHidden = false
 
         let fileView = FileItemView(fileURL: url)
-        fileView.onRemove = { [weak self, weak fileView] in
-            guard let self, let fileView else { return }
-            self.removeFile(url: url, view: fileView)
-        }
-        overlapView.addSubview(fileView) // контейнер сам разложит по центру с поворотами
+        overlapView.addSubview(fileView)    // OverlapStackView сам выровняет/повернёт
         overlapView.needsLayout = true
         overlapView.layoutSubtreeIfNeeded()
     }
 
-    private func removeFile(url: URL, view: NSView) {
-        if let idx = fileItems.firstIndex(of: url) {
-            fileItems.remove(at: idx)
-        }
-        overlapView.removeSubview(view)
-        overlapView.layoutSubtreeIfNeeded()
-
-        if fileItems.isEmpty {
-            overlapView.isHidden = true
-            titleLabel.isHidden = false
-        }
+    private func clearAll() {
+        fileItems.removeAll()
+        overlapView.subviews.forEach { $0.removeFromSuperview() }
+        overlapView.isHidden = true
+        titleLabel.isHidden = false
     }
 }
