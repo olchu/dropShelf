@@ -11,7 +11,7 @@ class FileItemView: NSView {
     
     init(fileURL: URL) {
         self.fileURL = fileURL
-        super.init(frame: NSRect(x: 0, y: 0, width: 80, height: 100))
+        super.init(frame: NSRect(x: 0, y: 0, width: 120, height: 115))
         setupView()
     }
     
@@ -21,8 +21,8 @@ class FileItemView: NSView {
     
     private func setupView() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        layer?.cornerRadius = 8
+        layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.12).cgColor  // Светлее на тёмном фоне
+        layer?.cornerRadius = 10
         
         // Иконка файла
         imageView = NSImageView(frame: NSRect(x: 15, y: 30, width: 50, height: 50))

@@ -14,9 +14,10 @@ class FloatingPanelWindow: NSPanel {
         // Прозрачный фон
         self.isOpaque = false
         self.backgroundColor = .clear
-        
-        // Показывать тень
         self.hasShadow = true
+        
+        // Увеличиваем тень для эффекта глубины
+        self.invalidateShadow()
         
         // Окно можно перемещать кликая по любой области
         self.isMovableByWindowBackground = true

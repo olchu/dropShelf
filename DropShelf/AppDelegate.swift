@@ -32,8 +32,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             print("❌ Button is nil!")
         }
         
-        // Создаём плавающее окно
-        let windowSize = NSSize(width: 400, height: 200)
+        // Создаём плавающее окно (квадратное и меньше)
+        let windowSize = NSSize(width: 280, height: 280)
         let screenFrame = NSScreen.main?.frame ?? .zero
         let windowRect = NSRect(
             x: (screenFrame.width - windowSize.width) / 2,
