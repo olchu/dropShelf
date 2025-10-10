@@ -5,11 +5,11 @@ class FloatingPanelWindow: NSPanel {
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
         
-        // Окно всегда поверх остальных
-        self.level = .floating
+        // Окно поверх обычных окон, но не поверх других floating окон
+        self.level = .statusBar
         
         // Окно не активируется при клике
-        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         
         // Прозрачный фон
         self.isOpaque = false
