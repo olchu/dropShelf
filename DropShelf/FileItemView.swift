@@ -1,4 +1,5 @@
 import Cocoa
+import UniformTypeIdentifiers
 
 class FileItemView: NSView {
     private let fileURL: URL
@@ -20,10 +21,8 @@ class FileItemView: NSView {
     
     private func setupView() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.3).cgColor
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
         layer?.cornerRadius = 8
-        
-        NSLog("🎨 Setting up FileItemView with frame: \(self.frame)")
         
         // Иконка файла
         imageView = NSImageView(frame: NSRect(x: 15, y: 30, width: 50, height: 50))
@@ -59,19 +58,79 @@ class FileItemView: NSView {
     
     // Поддержка перетаскивания файла из этого view
     override func mouseDown(with event: NSEvent) {
-        let pasteboardItem = NSPasteboardItem()
-        pasteboardItem.setString(fileURL.absoluteString, forType: .fileURL)
+        // Используем NSFilePromiseProvider для правильной работы с файлами
+        let provider = NSFilePromiseProvider(fileType: kUTTypeFileURL as String, delegate: self)
+        provider.userInfo = fileURL
         
-        let draggingItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
+        let draggingItem = NSDraggingItem(pasteboardWriter: provider)
         draggingItem.setDraggingFrame(self.bounds, contents: imageView.image)
         
-        beginDraggingSession(with: [draggingItem], event: event, source: self)
+        let draggingSession = beginDraggingSession(with: [draggingItem], event: event, source: self)
+        draggingSession.animatesToStartingPositionsOnCancelOrFail = true
+        draggingSession.draggingFormation = .default
     }
 }
 
 // MARK: - NSDraggingSource
 extension FileItemView: NSDraggingSource {
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        return .copy
+        return [.move, .copy]
+    }
+    
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        NSLog("🎯 Drag ended with operation: \(operation.rawValue)")
+        
+        if operation.isEmpty {
+            NSLog("❌ Drag was cancelled")
+        }
+        // Удаление файла произойдёт в filePromiseProvider:didFinish
+    }
+    
+    func draggingSession(_ session: NSDraggingSession, willBeginAt screenPoint: NSPoint) {
+        NSLog("🚀 Drag session beginning")
+    }
+}
+
+// MARK: - NSFilePromiseProviderDelegate
+extension FileItemView: NSFilePromiseProviderDelegate {
+    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
+        return fileURL.lastPathComponent
+    }
+    
+    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, writePromiseTo url: URL, completionHandler: @escaping (Error?) -> Void) {
+        NSLog("📝 Writing file to: \(url.path)")
+        
+        do {
+            // Копируем файл в целевое место
+            if FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.removeItem(at: url)
+            }
+            try FileManager.default.copyItem(at: fileURL, to: url)
+            
+            NSLog("✅ File copied successfully")
+            completionHandler(nil)
+            
+            // Теперь можно безопасно удалить исходный файл
+            DispatchQueue.main.async {
+                do {
+                    if FileManager.default.fileExists(atPath: self.fileURL.path) {
+                        try FileManager.default.removeItem(at: self.fileURL)
+                        NSLog("🗑 Original file deleted: \(self.fileURL.lastPathComponent)")
+                    }
+                } catch {
+                    NSLog("⚠️ Failed to delete original file: \(error)")
+                }
+                
+                // Удаляем из окна
+                self.onRemove?()
+            }
+        } catch {
+            NSLog("❌ Failed to copy file: \(error)")
+            completionHandler(error)
+        }
+    }
+    
+    func operationMask(forDraggingInfo draggingInfo: NSDraggingInfo) -> NSDragOperation {
+        return [.move, .copy]
     }
 }
