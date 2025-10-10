@@ -1,17 +1,12 @@
-//
-//  DropShelfApp.swift
-//  DropShelf
-//
-//  Created by Oleg Churkin on 10/10/25.
-//
-
 import SwiftUI
 
-@main
+@main  // ← ВОТ ТУТ
 struct DropShelfApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        Settings {
+            EmptyView()
         }
     }
 }
