@@ -62,12 +62,31 @@ class FileItemView: NSView {
         let provider = NSFilePromiseProvider(fileType: kUTTypeFileURL as String, delegate: self)
         provider.userInfo = fileURL
         
+        // Создаём красивый preview для перетаскивания
+        let iconSize = NSSize(width: 64, height: 64)
+        let icon = NSWorkspace.shared.icon(forFile: fileURL.path)
+        icon.size = iconSize
+        
         let draggingItem = NSDraggingItem(pasteboardWriter: provider)
-        draggingItem.setDraggingFrame(self.bounds, contents: imageView.image)
+        
+        // Получаем позицию клика относительно view
+        let mouseLocation = convert(event.locationInWindow, from: nil)
+        
+        // Центрируем иконку относительно курсора
+        let draggingFrame = NSRect(
+            x: mouseLocation.x - iconSize.width / 2,
+            y: mouseLocation.y - iconSize.height / 2,
+            width: iconSize.width,
+            height: iconSize.height
+        )
+        
+        draggingItem.setDraggingFrame(draggingFrame, contents: icon)
         
         let draggingSession = beginDraggingSession(with: [draggingItem], event: event, source: self)
-        draggingSession.animatesToStartingPositionsOnCancelOrFail = true
-        draggingSession.draggingFormation = .default
+        
+        // ВАЖНО: отключаем анимацию возврата
+        draggingSession.animatesToStartingPositionsOnCancelOrFail = false
+        draggingSession.draggingFormation = .none
     }
 }
 
