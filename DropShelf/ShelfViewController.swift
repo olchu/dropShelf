@@ -17,7 +17,7 @@ class ShelfViewController: NSViewController {
     }
     
     private func setupUI() {
-        // Базовый drop-target слой
+        // Drop-target слой
         let dropTargetView = DropTargetView(frame: view.bounds)
         dropTargetView.autoresizingMask = [.width, .height]
         dropTargetView.onFilesDropped = { [weak self] urls in
@@ -41,10 +41,9 @@ class ShelfViewController: NSViewController {
         darkOverlay.cornerRadius = 20
         darkOverlay.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         visualEffect.layer?.addSublayer(darkOverlay)
-        
         dropTargetView.addSubview(visualEffect)
         
-        // ⚠️ Используем СВОЙСТВО контроллера (не локальную переменную)
+        // Заголовок по центру до первого дропа
         titleLabel = NSTextField(labelWithString: "Drop files here")
         titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
         titleLabel.textColor = NSColor(white: 0.9, alpha: 0.85)
@@ -53,7 +52,7 @@ class ShelfViewController: NSViewController {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         dropTargetView.addSubview(titleLabel)
         
-        // ScrollView со стеком — изначально скрыт
+        // Скролл (изначально скрыт)
         scrollView = NSScrollView()
         scrollView.hasHorizontalScroller = true
         scrollView.hasVerticalScroller = false
@@ -64,32 +63,51 @@ class ShelfViewController: NSViewController {
         scrollView.isHidden = true
         dropTargetView.addSubview(scrollView)
         
-        // Горизонтальный стек для файлов
+        // Документ-вью (контейнер для контента)
+        let documentView = NSView()
+        documentView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.documentView = documentView
+        
+        // Горизонтальный стек с файлами
         stackView = NSStackView()
         stackView.orientation = .horizontal
         stackView.spacing = 10
         stackView.alignment = .centerY
         stackView.distribution = .gravityAreas
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        // ⭐ Чуть отступов и «ненулевая» высота/ширина, чтобы был размер даже с 1 элементом
+        stackView.edgeInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
+        stackView.setHuggingPriority(.required, for: .horizontal)
+        stackView.setHuggingPriority(.required, for: .vertical)
         
-        // Контейнер для документа scrollView
-        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 1000, height: 120))
-        containerView.addSubview(stackView)
-        stackView.frame = NSRect(x: 0, y: 0, width: 1000, height: 120)
-        scrollView.documentView = containerView
+        documentView.addSubview(stackView)
         
-        NSLog("📐 StackView configured with frame: \(stackView.frame)")
+        let clipView = scrollView.contentView
         
-        // Констрейнты — центрируем заголовок, скролл по краям
+        // Констрейнты
         NSLayoutConstraint.activate([
-            // Заголовок по центру окна 200×200
+            // Заголовок по центру окна
             titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             
-            // Скролл занимает всё пространство с отступами
+            // Скролл занимает окно с отступами
             scrollView.topAnchor.constraint(equalTo: view.topAnchor, constant: 10),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -10)
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -10),
+            
+            // Документ-вью центрируется и не меньше clipView
+            documentView.centerXAnchor.constraint(equalTo: clipView.centerXAnchor),
+            documentView.centerYAnchor.constraint(equalTo: clipView.centerYAnchor),
+            documentView.widthAnchor.constraint(greaterThanOrEqualTo: clipView.widthAnchor),
+            documentView.heightAnchor.constraint(greaterThanOrEqualTo: clipView.heightAnchor),
+            
+            // Стек по центру документа
+            stackView.centerXAnchor.constraint(equalTo: documentView.centerXAnchor),
+            stackView.centerYAnchor.constraint(equalTo: documentView.centerYAnchor),
+            // Позволяем расти
+            stackView.leadingAnchor.constraint(greaterThanOrEqualTo: documentView.leadingAnchor),
+            stackView.topAnchor.constraint(greaterThanOrEqualTo: documentView.topAnchor),
         ])
     }
     
@@ -97,62 +115,37 @@ class ShelfViewController: NSViewController {
         view.registerForDraggedTypes([.fileURL])
     }
     
-    // MARK: - Drag & Drop (если DropTargetView не обрабатывает сам)
-    func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        return .copy
-    }
+    // MARK: - Drag & Drop
+    func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
     
     func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pasteboard = sender.draggingPasteboard
-        
-        guard let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] else {
-            return false
-        }
-        
-        for url in urls {
-            addFile(url: url)
-        }
-        
+        guard let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] else { return false }
+        for url in urls { addFile(url: url) }
         return true
     }
     
     // MARK: - Управление файлами
     private func addFile(url: URL) {
-        guard !fileItems.contains(url) else {
-            NSLog("⚠️ File already exists: \(url.lastPathComponent)")
-            return
-        }
-        
-        NSLog("➕ Adding file: \(url.lastPathComponent)")
+        guard !fileItems.contains(url) else { return }
         fileItems.append(url)
-        
-        // Прячем заголовок, показываем список
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.titleLabel.isHidden = true
-            self.scrollView.isHidden = false
-        }
-        
+
+        titleLabel.isHidden = true
+        scrollView.isHidden = false
+
         let fileView = FileItemView(fileURL: url)
-        fileView.onRemove = { [weak self] in
-            self?.removeFile(url: url)
-        }
-        
+        fileView.onRemove = { [weak self] in self?.removeFile(url: url) }
         stackView.addArrangedSubview(fileView)
-        NSLog("📊 StackView now has \(stackView.arrangedSubviews.count) views")
     }
     
     private func removeFile(url: URL) {
         if let index = fileItems.firstIndex(of: url) {
             fileItems.remove(at: index)
-            
             if index < stackView.arrangedSubviews.count {
                 let viewToRemove = stackView.arrangedSubviews[index]
                 stackView.removeArrangedSubview(viewToRemove)
                 viewToRemove.removeFromSuperview()
             }
-            
-            // Если файлов нет — показываем заголовок обратно
             if fileItems.isEmpty {
                 titleLabel.isHidden = false
                 scrollView.isHidden = true
