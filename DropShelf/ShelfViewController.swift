@@ -5,6 +5,11 @@ class ShelfViewController: NSViewController {
     private var titleLabel: NSTextField!
     private var fileItems: [URL] = []
 
+    // Кнопка закрытия
+    private var closeButton: CloseButton!
+    // Радиус скругления окна/панели
+    private let cornerRadius: CGFloat = 20.0
+
     override func loadView() {
         self.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
         setupUI()
@@ -16,29 +21,30 @@ class ShelfViewController: NSViewController {
     }
 
     private func setupUI() {
-        // Drop target (фон/blur как раньше можно оставить в твоём коде)
+        // Drop target
         let dropTargetView = DropTargetView(frame: view.bounds)
         dropTargetView.autoresizingMask = [.width, .height]
         dropTargetView.onFilesDropped = { [weak self] urls in urls.forEach { self?.addFile(url: $0) } }
         view.addSubview(dropTargetView)
 
+        // Фон панели
         let visualEffect = NSVisualEffectView(frame: view.bounds)
         visualEffect.material = .hudWindow
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
         visualEffect.wantsLayer = true
-        visualEffect.layer?.cornerRadius = 20
+        visualEffect.layer?.cornerRadius = cornerRadius
         visualEffect.autoresizingMask = [.width, .height]
 
         let darkOverlay = CALayer()
-        darkOverlay.backgroundColor = NSColor(white: 0.1, alpha: 0.75).cgColor
+        darkOverlay.backgroundColor = NSColor(white: 0.1, alpha: 0.25).cgColor
         darkOverlay.frame = view.bounds
-        darkOverlay.cornerRadius = 20
+        darkOverlay.cornerRadius = cornerRadius
         darkOverlay.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         visualEffect.layer?.addSublayer(darkOverlay)
         dropTargetView.addSubview(visualEffect)
 
-        // Центровой лейбл
+        // Заголовок
         titleLabel = NSTextField(labelWithString: "Drop files here")
         titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
         titleLabel.textColor = NSColor(white: 0.9, alpha: 0.85)
@@ -51,7 +57,7 @@ class ShelfViewController: NSViewController {
             titleLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
 
-        // Стопка
+        // Стопка превью
         overlapView = OverlapStackView(frame: view.bounds)
         overlapView.autoresizingMask = [.width, .height]
         overlapView.wantsLayer = true
@@ -61,22 +67,29 @@ class ShelfViewController: NSViewController {
         dropTargetView.addSubview(overlapView)
         overlapView.isHidden = true
 
-        // dnd прямо по стопке (поверх иконок)
-        overlapView.onFilesDropped = { [weak self] urls in
-            urls.forEach { self?.addFile(url: $0) }
-        }
-        // очистка после группового дропа наружу
-        overlapView.onRemoveAll = { [weak self] in
-            self?.clearAll()
-        }
+        overlapView.onFilesDropped = { [weak self] urls in urls.forEach { self?.addFile(url: $0) } }
+        overlapView.onRemoveAll = { [weak self] in self?.clearAll() }
+
+        // Кнопка: белый круг α=0.3; на ховере α=0.7; белый «x»
+        let diameter = cornerRadius * 1.5
+        closeButton = CloseButton(diameter: diameter)
+        closeButton.normalAlpha = 0.10
+        closeButton.hoverAlpha  = 0.25
+        closeButton.target = self
+        closeButton.action = #selector(hideWindow)
+        dropTargetView.addSubview(closeButton)
+
+        NSLayoutConstraint.activate([
+            closeButton.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
+            closeButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8)
+        ])
     }
 
-    private func setupDragAndDrop() {
-        view.registerForDraggedTypes([.fileURL])
-    }
+    @objc private func hideWindow() { view.window?.orderOut(nil) }
 
+    // DnD
+    private func setupDragAndDrop() { view.registerForDraggedTypes([.fileURL]) }
     func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
-
     func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
         guard let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] else { return false }
@@ -84,15 +97,15 @@ class ShelfViewController: NSViewController {
         return true
     }
 
+    // Files
     private func addFile(url: URL) {
         guard !fileItems.contains(url) else { return }
         fileItems.append(url)
-
         titleLabel.isHidden = true
         overlapView.isHidden = false
 
         let fileView = FileItemView(fileURL: url)
-        overlapView.addSubview(fileView)    // OverlapStackView сам выровняет/повернёт
+        overlapView.addSubview(fileView)
         overlapView.needsLayout = true
         overlapView.layoutSubtreeIfNeeded()
     }
