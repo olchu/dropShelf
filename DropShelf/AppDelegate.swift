@@ -69,8 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleWindow() {
         guard let window = floatingWindow else { return }
         if window.isVisible {
-            window.orderOut(nil)
-            updateStatusHighlight(false)
+            window.orderOut(nil)  // → panelDidHide → updateStatusHighlight(false)
         } else {
             showWindow()
         }
@@ -89,7 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let h = window.frame.height
             let screen = NSScreen.screens.first(where: { $0.frame.contains(point) }) ?? NSScreen.main
             let screenFrame = screen?.visibleFrame ?? .zero
-            let gap: CGFloat = 16
+            let gap = w / 2
 
             // Пробуем справа, если не помещается — слева
             var x = point.x + gap
@@ -120,6 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func panelDidHide() {
+        updateStatusHighlight(false)
         dragDetector?.startMonitoring()
     }
 

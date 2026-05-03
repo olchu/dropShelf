@@ -66,6 +66,21 @@ final class CloseButton: NSButton {
     }
 
     // Hover-эффект (увеличиваем альфу круга)
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        frame.contains(point) ? self : nil
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        // consume — не даём событию всплыть к OverlapStackView или двигать окно
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        window?.orderOut(nil)
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let t = tracking { removeTrackingArea(t) }
