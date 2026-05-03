@@ -47,6 +47,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         shelfViewController = ShelfViewController()
         floatingWindow?.contentViewController = shelfViewController
+        floatingWindow?.minSize = windowSize
+        floatingWindow?.maxSize = windowSize
         floatingWindow?.orderOut(nil)
 
         // ---- Детектор перетаскивания (как у тебя) ----

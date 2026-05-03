@@ -17,6 +17,9 @@ final class OverlapStackView: NSView, NSDraggingSource {
     /// Callback: пришли файлы через drop на область стопки (в т.ч. поверх иконок)
     var onFilesDropped: (([URL]) -> Void)?
 
+    /// Callback: пользователь удалил один файл через контекстное меню
+    var onRemoveFile: ((URL) -> Void)?
+
     override var isFlipped: Bool { true }
 
     // MARK: - Init
@@ -101,6 +104,46 @@ final class OverlapStackView: NSView, NSDraggingSource {
             return
         }
         beginGroupDrag(event: event)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        let fileViews = subviews.compactMap { $0 as? FileItemView }
+        guard !fileViews.isEmpty else { return }
+
+        let menu = NSMenu()
+        for fileView in fileViews.reversed() {
+            let item = NSMenuItem(
+                title: fileView.fileURL.lastPathComponent,
+                action: #selector(removeFileItem(_:)),
+                keyEquivalent: ""
+            )
+            item.representedObject = fileView
+            item.target = self
+            menu.addItem(item)
+        }
+        if fileViews.count > 1 {
+            menu.addItem(.separator())
+            let removeAll = NSMenuItem(
+                title: "Remove All",
+                action: #selector(removeAllItems),
+                keyEquivalent: ""
+            )
+            removeAll.target = self
+            menu.addItem(removeAll)
+        }
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+
+    @objc private func removeFileItem(_ sender: NSMenuItem) {
+        guard let fileView = sender.representedObject as? FileItemView else { return }
+        let url = fileView.fileURL
+        fileView.removeFromSuperview()
+        needsLayout = true
+        onRemoveFile?(url)
+    }
+
+    @objc private func removeAllItems() {
+        onRemoveAll?()
     }
 
     private func beginGroupDrag(event: NSEvent) {

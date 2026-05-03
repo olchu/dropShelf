@@ -1,17 +1,13 @@
 import Cocoa
 
-/// Кнопка закрытия: белый круг с заданной прозрачностью + белый «x».
-/// При наведении круг становится ЯРЧЕ (альфа увеличивается).
+/// Кнопка закрытия: круг с заданной прозрачностью + «x».
+/// Цвета адаптируются под светлую и тёмную тему.
 final class CloseButton: NSButton {
-    // Размер
     private let diameter: CGFloat
 
-    // Фон-круг (обычный NSView с CALayer)
     private let backgroundView = NSView()
-    // Иконка «x»
     private let iconView = NSImageView()
 
-    // Прозрачность белого круга
     var normalAlpha: CGFloat = 0.10 { didSet { applyAlpha(normalAlpha) } }
     var hoverAlpha:  CGFloat = 0.25
 
@@ -26,7 +22,6 @@ final class CloseButton: NSButton {
         imagePosition = .imageOnly
         wantsLayer = true
 
-        // Белый круг с нужной альфой
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.wantsLayer = true
         backgroundView.layer?.cornerRadius = diameter / 2
@@ -34,14 +29,13 @@ final class CloseButton: NSButton {
         applyAlpha(normalAlpha)
         addSubview(backgroundView)
 
-        // Белый «x»
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.imageScaling = .scaleProportionallyDown
         if let img = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close") {
             let cfg = NSImage.SymbolConfiguration(pointSize: diameter * 0.5, weight: .semibold)
             iconView.image = img.withSymbolConfiguration(cfg)
         }
-        iconView.contentTintColor = NSColor(white: 0.9, alpha: 0.75)
+        iconView.contentTintColor = .secondaryLabelColor
         backgroundView.addSubview(iconView)
 
         NSLayoutConstraint.activate([
@@ -60,12 +54,16 @@ final class CloseButton: NSButton {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    // Применяем белый цвет с альфой к фону
     private func applyAlpha(_ alpha: CGFloat) {
-        backgroundView.layer?.backgroundColor = NSColor.white.withAlphaComponent(alpha).cgColor
+        backgroundView.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(alpha).cgColor
     }
 
-    // Hover-эффект (увеличиваем альфу круга)
+    // Обновляем цвет слоя при смене темы (cgColor не динамический)
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyAlpha(normalAlpha)
+    }
+
     override func hitTest(_ point: NSPoint) -> NSView? {
         frame.contains(point) ? self : nil
     }
@@ -73,7 +71,7 @@ final class CloseButton: NSButton {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
-        // consume — не даём событию всплыть к OverlapStackView или двигать окно
+        // consume
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -94,10 +92,10 @@ final class CloseButton: NSButton {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        backgroundView.animator().layer?.backgroundColor = NSColor.white.withAlphaComponent(hoverAlpha).cgColor
+        backgroundView.animator().layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(hoverAlpha).cgColor
     }
 
     override func mouseExited(with event: NSEvent) {
-        backgroundView.animator().layer?.backgroundColor = NSColor.white.withAlphaComponent(normalAlpha).cgColor
+        backgroundView.animator().layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(normalAlpha).cgColor
     }
 }
