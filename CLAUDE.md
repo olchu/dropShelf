@@ -7,7 +7,7 @@
 Вызов: `/swift-development` или ссылайся на него в контексте задачи.
 
 ## Obsidian Knowledge Vault
-Хранилище знаний: /dropShelf_ob
+Хранилище знаний: /Users/olchu/Documents/projects/pet/DropShelf/dropShelf_ob
 ### При старте сессии
 Прочитай 00-home/index.md и текущие приоритеты.md.
 Если задача касается модуля — прочитай заметку из knowledge/.

@@ -32,6 +32,11 @@ Floating-панель для macOS: временное хранилище фай
 - [[Паттерн глобального мониторинга событий]]
 - [[Layer-based визуальные эффекты в AppKit]]
 - [[Snapshot для drag-image]]
+- [[NSStackView fill в AppKit]] — `.fill` не существует, используй `.leading` + trailingAnchor
+- [[CALayer backgroundColor не динамический]] — нужен viewDidChangeEffectiveAppearance
+
+### Сессии
+- [[2026-05-03 — UI polish, manage mode, glass]] — bottom bar, manage mode, Liquid Glass, баги
 
 ### Бизнес
 - [[Продуктовая идея DropShelf]] — концепция, аудитория, ценность
