@@ -1,4 +1,14 @@
 import Cocoa
+import SwiftUI
+
+@available(macOS 26.0, *)
+private struct GlassPanel: View {
+    var cornerRadius: CGFloat
+    var body: some View {
+        Color.clear
+            .glassEffect(in: RoundedRectangle(cornerRadius: cornerRadius))
+    }
+}
 
 class ShelfViewController: NSViewController {
     private var overlapView: OverlapStackView!
@@ -27,22 +37,29 @@ class ShelfViewController: NSViewController {
         dropTargetView.onFilesDropped = { [weak self] urls in urls.forEach { self?.addFile(url: $0) } }
         view.addSubview(dropTargetView)
 
-        // Фон панели
-        let visualEffect = NSVisualEffectView(frame: view.bounds)
-        visualEffect.material = .popover
-        visualEffect.blendingMode = .behindWindow
-        visualEffect.state = .active
-        visualEffect.wantsLayer = true
-        visualEffect.layer?.cornerRadius = cornerRadius
-        visualEffect.autoresizingMask = [.width, .height]
+        // Фон панели — Liquid Glass (macOS 26+)
+        if #available(macOS 26.0, *) {
+            let glassHost = NSHostingView(rootView: GlassPanel(cornerRadius: cornerRadius))
+            glassHost.frame = view.bounds
+            glassHost.autoresizingMask = [.width, .height]
+            dropTargetView.addSubview(glassHost)
+        } else {
+            let visualEffect = NSVisualEffectView(frame: view.bounds)
+            visualEffect.material = .popover
+            visualEffect.blendingMode = .behindWindow
+            visualEffect.state = .active
+            visualEffect.wantsLayer = true
+            visualEffect.layer?.cornerRadius = cornerRadius
+            visualEffect.autoresizingMask = [.width, .height]
 
-        let darkOverlay = CALayer()
-        darkOverlay.backgroundColor = NSColor(white: 0.1, alpha: 0.25).cgColor
-        darkOverlay.frame = view.bounds
-        darkOverlay.cornerRadius = cornerRadius
-        darkOverlay.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-        visualEffect.layer?.addSublayer(darkOverlay)
-        dropTargetView.addSubview(visualEffect)
+            let darkOverlay = CALayer()
+            darkOverlay.backgroundColor = NSColor(white: 0.1, alpha: 0.25).cgColor
+            darkOverlay.frame = view.bounds
+            darkOverlay.cornerRadius = cornerRadius
+            darkOverlay.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+            visualEffect.layer?.addSublayer(darkOverlay)
+            dropTargetView.addSubview(visualEffect)
+        }
 
         // Заголовок
         titleLabel = NSTextField(labelWithString: "Drop files here")

@@ -32,12 +32,6 @@ class FloatingPanelWindow: NSPanel {
         self.isMovableByWindowBackground = true
     }
     
-    // Позволяет окну стать ключевым для приёма событий
-    override var canBecomeKey: Bool {
-        return true
-    }
-    
-    override var canBecomeMain: Bool {
-        return true
-    }
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
 }

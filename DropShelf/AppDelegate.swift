@@ -113,8 +113,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        window.orderFront(nil)
         updateStatusHighlight(true)
     }
 
