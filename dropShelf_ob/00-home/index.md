@@ -23,6 +23,11 @@ Floating-панель для macOS: временное хранилище фай
 - [[NSPanel выбран вместо NSWindow]] — почему floating panel
 - [[OverlapStackView управляет всем DnD]] — архитектурное решение по drag
 
+### Отладка
+- [[CloseButton hitTest bounds vs frame]] — hitTest: frame vs bounds, координатные системы
+- [[DropTargetView и OverlapStackView дублируют DnD]] — почему это не проблема
+- [[StatusBarIcon не отображается]] — isTemplate и имя ассета
+
 ### Паттерны
 - [[Паттерн глобального мониторинга событий]]
 - [[Layer-based визуальные эффекты в AppKit]]

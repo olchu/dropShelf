@@ -9,6 +9,8 @@ final class FileItemView: NSView {
 
     private let maxPreviewSide: CGFloat = 120
 
+    private(set) var dragSnapshot: NSImage?
+
     private var cachedIntrinsic: NSSize = NSSize(width: 120, height: 120) {
         didSet { invalidateIntrinsicContentSize() }
     }
@@ -74,6 +76,20 @@ final class FileItemView: NSView {
         cachedIntrinsic = fitted
         needsLayout = true
         layoutSubtreeIfNeeded()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.cacheDragSnapshot()
+        }
+    }
+
+    private func cacheDragSnapshot() {
+        let size = bounds.size
+        guard size.width > 0, size.height > 0,
+              let rep = bitmapImageRepForCachingDisplay(in: bounds) else { return }
+        cacheDisplay(in: bounds, to: rep)
+        let img = NSImage(size: size)
+        img.addRepresentation(rep)
+        dragSnapshot = img
     }
 
     private func fittedSize(for original: NSSize, maxSide: CGFloat) -> NSSize {

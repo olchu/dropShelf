@@ -90,6 +90,8 @@ final class OverlapStackView: NSView, NSDraggingSource {
 
     // MARK: - Group Drag (ВСЕГДА от имени стопки)
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         beginGroupDrag(event: event)
     }
@@ -106,7 +108,7 @@ final class OverlapStackView: NSView, NSDraggingSource {
             let writer = v.fileURL as NSURL
             let di = NSDraggingItem(pasteboardWriter: writer)
 
-            let img = snapshot(of: v)
+            let img = v.dragSnapshot ?? snapshot(of: v)
 
             let spread: CGFloat = 6
             let frame = NSRect(
