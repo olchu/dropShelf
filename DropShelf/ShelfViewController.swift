@@ -358,7 +358,7 @@ class ShelfViewController: NSViewController {
     // MARK: - Files
 
     private func addFile(url: URL) {
-        guard !fileItems.contains(url) else { return }
+        guard !isManaging, !fileItems.contains(url) else { return }
         fileItems.append(url)
         titleLabel.isHidden = true
         overlapView.isHidden = isManaging

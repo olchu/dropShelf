@@ -41,7 +41,8 @@ final class OverlapStackView: NSView, NSDraggingSource {
 
     // ВАЖНО: все события (мышь/dnd) всегда идут в контейнер,
     // даже если курсор над дочерними превью — так drop работает по всей области.
-    override func hitTest(_ point: NSPoint) -> NSView? { self }
+    // Но когда view скрыт (manage mode) — не перехватываем события.
+    override func hitTest(_ point: NSPoint) -> NSView? { isHidden ? nil : self }
 
     // MARK: - Layout
 
