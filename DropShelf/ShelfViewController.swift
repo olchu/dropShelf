@@ -367,7 +367,6 @@ class ShelfViewController: NSViewController {
         let fileView = FileItemView(fileURL: url)
         overlapView.addSubview(fileView)
         overlapView.needsLayout = true
-        overlapView.layoutSubtreeIfNeeded()
 
         updateCountLabel()
         if isManaging { refreshManageView() }
