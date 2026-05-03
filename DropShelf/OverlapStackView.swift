@@ -88,11 +88,18 @@ final class OverlapStackView: NSView, NSDraggingSource {
         }
     }
 
-    // MARK: - Group Drag (ВСЕГДА от имени стопки)
+    // MARK: - Group Drag
 
+    override var mouseDownCanMoveWindow: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
+        let localPoint = convert(event.locationInWindow, from: nil)
+        let onFile = subviews.compactMap { $0 as? FileItemView }.contains { $0.frame.contains(localPoint) }
+        guard onFile else {
+            super.mouseDown(with: event)
+            return
+        }
         beginGroupDrag(event: event)
     }
 
