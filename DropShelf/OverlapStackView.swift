@@ -14,8 +14,11 @@ final class OverlapStackView: NSView, NSDraggingSource {
     /// Callback: успешный ГРУППОВОЙ drop → очистить стопку
     var onRemoveAll: (() -> Void)?
 
+
     /// Callback: пришли файлы через drop на область стопки (в т.ч. поверх иконок)
     var onFilesDropped: (([URL]) -> Void)?
+
+    private(set) var isLocalDragActive = false
 
     /// Callback: пользователь удалил один файл через контекстное меню
     var onRemoveFile: ((URL) -> Void)?
@@ -148,6 +151,7 @@ final class OverlapStackView: NSView, NSDraggingSource {
     }
 
     private func beginGroupDrag(event: NSEvent) {
+        isLocalDragActive = true
         let itemsViews = subviews.compactMap { $0 as? FileItemView }
         guard !itemsViews.isEmpty else { return }
 
@@ -197,7 +201,9 @@ final class OverlapStackView: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        if !operation.isEmpty { onRemoveAll?() }
+        isLocalDragActive = false
+        let endedOutsideWindow = !(window?.frame.contains(screenPoint) ?? true)
+        if !operation.isEmpty || endedOutsideWindow { onRemoveAll?() }
     }
 
     func ignoreModifierKeys(for session: NSDraggingSession) -> Bool { true }
@@ -206,9 +212,9 @@ final class OverlapStackView: NSView, NSDraggingSource {
 // MARK: - NSDraggingDestination (приём drop поверх стопки/иконок)
 extension OverlapStackView {
 
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
-    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
-    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { true }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { isLocalDragActive ? [] : .copy }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { isLocalDragActive ? [] : .copy }
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { !isLocalDragActive }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
