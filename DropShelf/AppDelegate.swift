@@ -15,14 +15,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         guard let button = statusItem?.button else { return }
 
-        // Загружаем картинку из Assets (НЕ template)
-        let img = NSImage(named: "StatusBarIcon")
-            ?? NSImage(named: "statusbar") // если лежит в бандле без Assets
+        let img = NSImage(named: "statusbar")
         button.image = img
-        button.alternateImage = img            // та же картинка при нажатии
-        button.image?.isTemplate = false       // <— ВАЖНО: никакой автоперекраски
+        button.alternateImage = img
+        button.image?.isTemplate = true
         button.imagePosition = .imageOnly
-        button.title = ""                      // без текста
+        button.title = ""
 
         button.target = self
         button.action = #selector(toggleWindow)

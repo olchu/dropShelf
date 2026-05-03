@@ -29,7 +29,7 @@ class ShelfViewController: NSViewController {
 
         // Фон панели
         let visualEffect = NSVisualEffectView(frame: view.bounds)
-        visualEffect.material = .hudWindow
+        visualEffect.material = .popover
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
         visualEffect.wantsLayer = true
