@@ -1,6 +1,15 @@
 import Cocoa
 
+extension Notification.Name {
+    static let floatingPanelDidHide = Notification.Name("floatingPanelDidHide")
+}
+
 class FloatingPanelWindow: NSPanel {
+
+    override func orderOut(_ sender: Any?) {
+        super.orderOut(sender)
+        NotificationCenter.default.post(name: .floatingPanelDidHide, object: self)
+    }
     
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)

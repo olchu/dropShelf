@@ -51,8 +51,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // ---- Детектор перетаскивания (как у тебя) ----
         dragDetector = DragDetector()
-        dragDetector?.onShakeDetected = { [weak self] in self?.showWindow() }
+        dragDetector?.onShakeDetected = { [weak self] mouseLocation in
+            self?.showWindow(near: mouseLocation)
+        }
         dragDetector?.startMonitoring()
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(panelDidHide),
+            name: .floatingPanelDidHide,
+            object: nil
+        )
     }
 
     // MARK: - Actions
@@ -72,21 +81,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem?.button?.contentTintColor = active ? .controlAccentColor : nil
     }
 
-    func showWindow() {
+    func showWindow(near mouseLocation: CGPoint? = nil) {
         guard let window = floatingWindow else { return }
-        // Показать под статус-иконкой
-        if let btn = statusItem?.button,
-           let btnWindow = btn.window {
-            let btnInScreen = btnWindow.convertToScreen(btn.convert(btn.bounds, to: nil))
-            let origin = NSPoint(
-                x: btnInScreen.midX - window.frame.width / 2,
-                y: btnInScreen.minY - window.frame.height - 6
-            )
-            window.setFrameOrigin(origin)
+
+        if let point = mouseLocation {
+            let w = window.frame.width
+            let h = window.frame.height
+            let screen = NSScreen.screens.first(where: { $0.frame.contains(point) }) ?? NSScreen.main
+            let screenFrame = screen?.visibleFrame ?? .zero
+            let gap: CGFloat = 16
+
+            // Пробуем справа, если не помещается — слева
+            var x = point.x + gap
+            if x + w > screenFrame.maxX {
+                x = point.x - w - gap
+            }
+            x = max(screenFrame.minX, x)
+
+            // Центрируем по вертикали относительно курсора
+            var y = point.y - h / 2
+            y = max(screenFrame.minY, min(y, screenFrame.maxY - h))
+
+            window.setFrameOrigin(NSPoint(x: x, y: y))
+        } else {
+            if let btn = statusItem?.button, let btnWindow = btn.window {
+                let btnInScreen = btnWindow.convertToScreen(btn.convert(btn.bounds, to: nil))
+                let origin = NSPoint(
+                    x: btnInScreen.midX - window.frame.width / 2,
+                    y: btnInScreen.minY - window.frame.height - 6
+                )
+                window.setFrameOrigin(origin)
+            }
         }
+
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         updateStatusHighlight(true)
+    }
+
+    @objc private func panelDidHide() {
+        dragDetector?.startMonitoring()
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
