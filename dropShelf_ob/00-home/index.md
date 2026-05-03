@@ -37,6 +37,7 @@ Floating-панель для macOS: временное хранилище фай
 
 ### Сессии
 - [[2026-05-03 — UI polish, manage mode, glass]] — bottom bar, manage mode, Liquid Glass, баги
+- [[2026-05-03 — drag fixes, manage mode polish]] — DragDetector, self-drop fix, hitTest isHidden
 
 ### Бизнес
 - [[Продуктовая идея DropShelf]] — концепция, аудитория, ценность
