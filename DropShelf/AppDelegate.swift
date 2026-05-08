@@ -23,7 +23,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         button.title = ""
 
         button.target = self
-        button.action = #selector(toggleWindow)
+        button.action = #selector(handleStatusItemClick)
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
         // На всякий случай: уберите любое тонирование
         button.contentTintColor = nil          // не задаём tint вообще
@@ -67,6 +68,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Actions
+
+    @objc func handleStatusItemClick() {
+        guard let event = NSApp.currentEvent else { return }
+        if event.type == .rightMouseUp {
+            showContextMenu()
+        } else {
+            toggleWindow()
+        }
+    }
+
+    private func showContextMenu() {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Quit DropShelf", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        statusItem?.menu = menu
+        statusItem?.button?.performClick(nil)
+        statusItem?.menu = nil
+    }
 
     @objc func toggleWindow() {
         guard let window = floatingWindow else { return }
