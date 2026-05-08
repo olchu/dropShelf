@@ -36,8 +36,7 @@ final class FileItemView: NSView {
         imageView.wantsLayer = true
         imageView.layer?.masksToBounds = true
         imageView.layer?.cornerRadius = 8
-        imageView.layer?.borderWidth = 2
-        imageView.layer?.borderColor = NSColor.white.cgColor
+        imageView.layer?.borderWidth = 0
         imageView.layer?.shadowColor = NSColor.black.withAlphaComponent(0.35).cgColor
         imageView.layer?.shadowOpacity = 1
         imageView.layer?.shadowRadius = 6
@@ -56,14 +55,15 @@ final class FileItemView: NSView {
     }
 
     private func loadPreviewAndSize() {
-        let previewImage: NSImage = NSImage(contentsOf: fileURL) ?? {
-            let icon = NSWorkspace.shared.icon(forFile: fileURL.path)
-            return icon
-        }()
+        let previewImage: NSImage?  = NSImage(contentsOf: fileURL)
+        let isIcon = previewImage == nil
+        let image = previewImage ?? NSWorkspace.shared.icon(forFile: fileURL.path)
 
-        let fitted = fittedSize(for: previewImage.size, maxSide: maxPreviewSide)
+        let fitted = isIcon
+            ? NSSize(width: maxPreviewSide, height: maxPreviewSide)
+            : fittedSize(for: image.size, maxSide: maxPreviewSide)
 
-        imageView.image = previewImage
+        imageView.image = image
         imageView.constraints
             .filter { ($0.firstAttribute == .width || $0.firstAttribute == .height) && $0.firstItem as? NSView === imageView }
             .forEach { $0.isActive = false }

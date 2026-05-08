@@ -12,6 +12,8 @@ class DragDetector {
 
     var onShakeDetected: ((CGPoint) -> Void)?
 
+    private var knownDragChangeCount: Int = NSPasteboard(name: .drag).changeCount
+
     func startMonitoring() {
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDragged, .leftMouseUp]) { [weak self] event in
             if event.type == .leftMouseUp {
@@ -29,7 +31,13 @@ class DragDetector {
         }
     }
 
+    private func isFileDragging() -> Bool {
+        let pb = NSPasteboard(name: .drag)
+        return pb.changeCount != knownDragChangeCount
+    }
+
     private func handleDrag(event: NSEvent) {
+        guard isFileDragging() else { return }
         let dy = event.deltaY
         guard abs(dy) > minDelta else { return }
 
@@ -58,5 +66,6 @@ class DragDetector {
         lastDeltaY = 0
         reversalCount = 0
         windowStart = nil
+        knownDragChangeCount = NSPasteboard(name: .drag).changeCount
     }
 }
