@@ -10,6 +10,9 @@ final class CloseButton: NSButton {
 
     var normalAlpha: CGFloat = 0.10 { didSet { applyAlpha(normalAlpha) } }
     var hoverAlpha:  CGFloat = 0.25
+    var accentColor = NSColor(srgbRed: 1, green: 56 / 255, blue: 60 / 255, alpha: 1) {
+        didSet { applyAlpha(normalAlpha) }
+    }
 
     private var tracking: NSTrackingArea?
 
@@ -55,7 +58,10 @@ final class CloseButton: NSButton {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func applyAlpha(_ alpha: CGFloat) {
-        backgroundView.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(alpha).cgColor
+        backgroundView.layer?.backgroundColor = NSColor.clear.cgColor
+        backgroundView.layer?.borderWidth = 0
+        iconView.contentTintColor = accentColor
+        iconView.alphaValue = 1
     }
 
     // Обновляем цвет слоя при смене темы (cgColor не динамический)
@@ -92,10 +98,10 @@ final class CloseButton: NSButton {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        backgroundView.animator().layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(hoverAlpha).cgColor
+        iconView.animator().alphaValue = 0.7
     }
 
     override func mouseExited(with event: NSEvent) {
-        backgroundView.animator().layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(normalAlpha).cgColor
+        iconView.animator().alphaValue = 1
     }
 }

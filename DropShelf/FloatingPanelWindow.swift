@@ -23,10 +23,9 @@ class FloatingPanelWindow: NSPanel {
         // Прозрачный фон
         self.isOpaque = false
         self.backgroundColor = .clear
-        self.hasShadow = true
-        
-        // Увеличиваем тень для эффекта глубины
-        self.invalidateShadow()
+        // У borderless-панели системная тень выглядит как тёмный бордер.
+        // Матовость фона создаётся отдельно и от этой настройки не зависит.
+        self.hasShadow = false
         
         // Окно можно перемещать кликая по любой области
         self.isMovableByWindowBackground = true

@@ -6,8 +6,12 @@ import QuickLookThumbnailing
 private struct GlassPanel: View {
     var cornerRadius: CGFloat
     var body: some View {
-        Color.clear
-            .glassEffect(in: RoundedRectangle(cornerRadius: cornerRadius))
+        ZStack {
+            Color.clear
+                .glassEffect(in: RoundedRectangle(cornerRadius: cornerRadius))
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(.black.opacity(0.50))
+        }
     }
 }
 
@@ -22,6 +26,7 @@ private class URLButton: NSButton {
 }
 
 class ShelfViewController: NSViewController {
+    private let accentColor = NSColor(srgbRed: 1, green: 56 / 255, blue: 60 / 255, alpha: 1)
     private var overlapView: OverlapStackView!
     private var titleLabel: NSTextField!
     private var fileItems: [URL] = []
@@ -74,7 +79,7 @@ class ShelfViewController: NSViewController {
             visualEffect.layer?.cornerRadius = cornerRadius
             visualEffect.autoresizingMask = [.width, .height]
             let darkOverlay = CALayer()
-            darkOverlay.backgroundColor = NSColor(white: 0.1, alpha: 0.25).cgColor
+            darkOverlay.backgroundColor = NSColor.black.withAlphaComponent(0.50).cgColor
             darkOverlay.frame = view.bounds
             darkOverlay.cornerRadius = cornerRadius
             darkOverlay.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
@@ -122,6 +127,7 @@ class ShelfViewController: NSViewController {
         // Кнопка закрытия
         let diameter = cornerRadius * 1.5
         closeButton = CloseButton(diameter: diameter)
+        closeButton.accentColor = accentColor
         closeButton.normalAlpha = 0.10
         closeButton.hoverAlpha  = 0.25
         dropTargetView.addSubview(closeButton)
@@ -148,7 +154,7 @@ class ShelfViewController: NSViewController {
         let sep = NSView()
         sep.translatesAutoresizingMaskIntoConstraints = false
         sep.wantsLayer = true
-        sep.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        sep.layer?.backgroundColor = accentColor.withAlphaComponent(0.22).cgColor
         bottomBar.addSubview(sep)
         NSLayoutConstraint.activate([
             sep.topAnchor.constraint(equalTo: bottomBar.topAnchor),
@@ -226,7 +232,7 @@ class ShelfViewController: NSViewController {
         let cfg = NSImage.SymbolConfiguration(pointSize: size, weight: .medium)
         btn.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?.withSymbolConfiguration(cfg)
         btn.image?.isTemplate = true
-        btn.contentTintColor = .secondaryLabelColor
+        btn.contentTintColor = accentColor
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.target = self
         btn.action = action
