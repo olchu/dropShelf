@@ -68,7 +68,9 @@ final class OverlapStackView: NSView, NSDraggingSource {
         let all = subviews
         let visible = Array(all.suffix(maxVisible))
         let count = visible.count
-        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        // Оптический центр рабочей области находится немного выше
+        // геометрического из-за нижнего toolbar.
+        let center = CGPoint(x: bounds.midX, y: bounds.midY - 16)
 
         if all.count > visible.count {
             for v in all.dropLast(visible.count) { v.isHidden = true }
