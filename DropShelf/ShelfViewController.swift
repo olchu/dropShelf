@@ -294,7 +294,18 @@ class ShelfViewController: NSViewController {
         icon.wantsLayer = true
         icon.layer?.cornerRadius = 4
         icon.layer?.masksToBounds = true
-        icon.image = NSWorkspace.shared.icon(forFile: url.path) // placeholder
+        let webDestination = WebLocation.destination(for: url)
+        if webDestination != nil {
+            let configuration = NSImage.SymbolConfiguration(pointSize: 24, weight: .regular)
+            icon.image = NSImage(
+                systemSymbolName: "globe",
+                accessibilityDescription: "Web link"
+            )?.withSymbolConfiguration(configuration)
+            icon.image?.isTemplate = true
+            icon.contentTintColor = accentColor
+        } else {
+            icon.image = NSWorkspace.shared.icon(forFile: url.path) // placeholder
+        }
         icon.translatesAutoresizingMaskIntoConstraints = false
 
         // Загружаем превью асинхронно через QuickLook
@@ -304,13 +315,15 @@ class ShelfViewController: NSViewController {
             scale: 2.0,
             representationTypes: .thumbnail
         )
-        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { thumb, _ in
-            if let img = thumb?.nsImage {
-                DispatchQueue.main.async { icon.image = img }
+        if webDestination == nil {
+            QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { thumb, _ in
+                if let img = thumb?.nsImage {
+                    DispatchQueue.main.async { icon.image = img }
+                }
             }
         }
 
-        let label = NSTextField(labelWithString: url.lastPathComponent)
+        let label = NSTextField(labelWithString: WebLocation.displayName(for: url))
         label.lineBreakMode = .byTruncatingMiddle
         label.maximumNumberOfLines = 1
         label.cell?.wraps = false

@@ -58,6 +58,23 @@ final class FileItemView: NSView {
     }
 
     private func loadPreviewAndSize() {
+        if WebLocation.destination(for: fileURL) != nil {
+            let configuration = NSImage.SymbolConfiguration(pointSize: 64, weight: .regular)
+            imageView.image = NSImage(
+                systemSymbolName: "globe",
+                accessibilityDescription: "Web link"
+            )?.withSymbolConfiguration(configuration)
+            imageView.image?.isTemplate = true
+            imageView.contentTintColor = NSColor(
+                srgbRed: 1,
+                green: 56 / 255,
+                blue: 60 / 255,
+                alpha: 1
+            )
+            applyImageSize(NSSize(width: 96, height: 96))
+            return
+        }
+
         let previewImage: NSImage?  = NSImage(contentsOf: fileURL)
         let isIcon = previewImage == nil
         let image = previewImage ?? NSWorkspace.shared.icon(forFile: fileURL.path)
@@ -67,6 +84,10 @@ final class FileItemView: NSView {
             : fittedSize(for: image.size, maxSide: maxPreviewSide)
 
         imageView.image = image
+        applyImageSize(fitted)
+    }
+
+    private func applyImageSize(_ fitted: NSSize) {
         imageView.constraints
             .filter { ($0.firstAttribute == .width || $0.firstAttribute == .height) && $0.firstItem as? NSView === imageView }
             .forEach { $0.isActive = false }

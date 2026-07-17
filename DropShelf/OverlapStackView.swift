@@ -39,7 +39,7 @@ final class OverlapStackView: NSView, NSDraggingSource {
         wantsLayer = true
         layer?.masksToBounds = false
         // Принимаем файлы по ВСЕЙ области стопки
-        registerForDraggedTypes([.fileURL])
+        registerForDraggedTypes(PasteboardImporter.supportedTypes)
     }
 
     // ВАЖНО: все события (мышь/dnd) всегда идут в контейнер,
@@ -104,9 +104,17 @@ final class OverlapStackView: NSView, NSDraggingSource {
 
     override func mouseDown(with event: NSEvent) {
         let localPoint = convert(event.locationInWindow, from: nil)
-        let onFile = subviews.compactMap { $0 as? FileItemView }.contains { $0.frame.contains(localPoint) }
-        guard onFile else {
+        let fileView = subviews.compactMap { $0 as? FileItemView }
+            .reversed()
+            .first { $0.frame.contains(localPoint) }
+        guard let fileView else {
             super.mouseDown(with: event)
+            return
+        }
+
+        if event.clickCount == 2,
+           let destination = WebLocation.destination(for: fileView.fileURL) {
+            NSWorkspace.shared.open(destination)
             return
         }
         beginGroupDrag(event: event)
@@ -119,7 +127,7 @@ final class OverlapStackView: NSView, NSDraggingSource {
         let menu = NSMenu()
         for fileView in fileViews.reversed() {
             let item = NSMenuItem(
-                title: fileView.fileURL.lastPathComponent,
+                title: WebLocation.displayName(for: fileView.fileURL),
                 action: #selector(removeFileItem(_:)),
                 keyEquivalent: ""
             )
@@ -219,10 +227,8 @@ extension OverlapStackView {
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { !isLocalDragActive }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let pb = sender.draggingPasteboard
-        guard let urls = pb.readObjects(forClasses: [NSURL.self],
-                                        options: [.urlReadingFileURLsOnly: true]) as? [URL],
-              !urls.isEmpty else { return false }
+        let urls = PasteboardImporter.importItems(from: sender.draggingPasteboard)
+        guard urls.isEmpty == false else { return false }
         onFilesDropped?(urls)
         return true
     }
