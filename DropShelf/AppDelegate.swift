@@ -6,6 +6,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var floatingWindow: FloatingPanelWindow?
     var shelfViewController: ShelfViewController?
     var dragDetector: DragDetector?
+    private var settingsWindowController: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Приложение только в статус-баре (без иконки в Dock)
@@ -80,10 +81,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showContextMenu() {
         let menu = NSMenu()
+        let settingsItem = menu.addItem(
+            withTitle: "Settings…",
+            action: #selector(showSettings),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Quit DropShelf", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)
         statusItem?.menu = nil
+    }
+
+    @objc private func showSettings() {
+        if settingsWindowController == nil {
+            settingsWindowController = SettingsWindowController()
+        }
+        settingsWindowController?.present()
     }
 
     @objc func toggleWindow() {

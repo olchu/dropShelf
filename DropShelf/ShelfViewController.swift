@@ -319,10 +319,13 @@ class ShelfViewController: NSViewController {
 
         let deleteBtn = URLButton(url: url)
         deleteBtn.isBordered = false
-        let cfg = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        deleteBtn.image = NSImage(systemSymbolName: "minus.circle.fill", accessibilityDescription: "Remove")?.withSymbolConfiguration(cfg)
+        let cfg = NSImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        deleteBtn.image = NSImage(
+            systemSymbolName: "minus.circle",
+            accessibilityDescription: "Remove"
+        )?.withSymbolConfiguration(cfg)
         deleteBtn.image?.isTemplate = true
-        deleteBtn.contentTintColor = .systemRed
+        deleteBtn.contentTintColor = accentColor
         deleteBtn.translatesAutoresizingMaskIntoConstraints = false
         deleteBtn.target = self
         deleteBtn.action = #selector(deleteFromManage(_:))
