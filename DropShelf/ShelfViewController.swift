@@ -54,7 +54,9 @@ class ShelfViewController: NSViewController {
     private func setupUI() {
         let dropTargetView = DropTargetView(frame: view.bounds)
         dropTargetView.autoresizingMask = [.width, .height]
-        dropTargetView.onFilesDropped = { [weak self] urls in urls.forEach { self?.addFile(url: $0) } }
+        dropTargetView.onFilesDropped = { [weak self] urls in
+            self?.addFiles(urls)
+        }
         view.addSubview(dropTargetView)
 
         // Фон
@@ -99,7 +101,9 @@ class ShelfViewController: NSViewController {
         overlapView.wantsLayer = true
         overlapView.layer?.masksToBounds = false
         overlapView.maxVisible = 4
-        overlapView.baseAngles = [-12, -6, 6, 12]
+        // Компактный веер: нижние карточки немного расходятся в стороны,
+        // а верхняя остаётся ровной и хорошо читается.
+        overlapView.baseAngles = [-6, 6, -3, 3]
         dropTargetView.addSubview(overlapView)
         overlapView.isHidden = true
         NSLayoutConstraint.activate([
@@ -109,7 +113,9 @@ class ShelfViewController: NSViewController {
             overlapView.bottomAnchor.constraint(equalTo: dropTargetView.bottomAnchor, constant: -bottomBarHeight)
         ])
 
-        overlapView.onFilesDropped = { [weak self] urls in urls.forEach { self?.addFile(url: $0) } }
+        overlapView.onFilesDropped = { [weak self] urls in
+            self?.addFiles(urls)
+        }
         overlapView.onRemoveAll = { [weak self] in self?.clearAll() }
         overlapView.onRemoveFile = { [weak self] url in self?.removeFile(url: url) }
 
@@ -356,6 +362,17 @@ class ShelfViewController: NSViewController {
     }
 
     // MARK: - Files
+
+    private func addFiles(_ urls: [URL]) {
+        for url in urls {
+            addFile(url: url)
+        }
+
+        // Один drop может содержать сразу несколько URL. Завершаем ручной
+        // layout всей стопки после добавления группы, чтобы углы применились
+        // ко всем карточкам в одном проходе.
+        overlapView.layoutSubtreeIfNeeded()
+    }
 
     private func addFile(url: URL) {
         guard !isManaging, !fileItems.contains(url) else { return }

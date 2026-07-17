@@ -96,8 +96,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateStatusHighlight(_ active: Bool) {
-        // Подсветка template-иконки, когда окно открыто
-        statusItem?.button?.contentTintColor = active ? .controlAccentColor : nil
+        // Template-иконка должна всегда использовать системный цвет строки меню.
+        // Не окрашиваем её при открытии панели: controlAccentColor может быть
+        // чёрным и делать иконку визуально «активной» не в стиле status bar.
+        statusItem?.button?.contentTintColor = nil
     }
 
     func showWindow(near mouseLocation: CGPoint? = nil) {

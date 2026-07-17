@@ -9,7 +9,7 @@ final class OverlapStackView: NSView, NSDraggingSource {
     var maxVisible: Int = 4 { didSet { needsLayout = true } }
 
     /// Углы поворота (в градусах) для нижних карточек. Верхняя = 0°.
-    var baseAngles: [CGFloat] = [-12, -6, 6, 12] { didSet { needsLayout = true } }
+    var baseAngles: [CGFloat] = [-6, 6, -3, 3] { didSet { needsLayout = true } }
 
     /// Callback: успешный ГРУППОВОЙ drop → очистить стопку
     var onRemoveAll: (() -> Void)?
@@ -76,19 +76,19 @@ final class OverlapStackView: NSView, NSDraggingSource {
 
         for (i, v) in visible.enumerated() {
             let size = v.intrinsicContentSize == .zero ? v.bounds.size : v.intrinsicContentSize
-            let frame = CGRect(x: center.x - size.width/2,
-                               y: center.y - size.height/2,
+            let isTop = (i == count - 1)
+            let angleDeg: CGFloat = isTop ? 0 : (baseAngles[i % baseAngles.count])
+            let offsetX = isTop ? 0 : angleDeg * 0.7
+            let offsetY: CGFloat = isTop ? 0 : 3
+            let frame = CGRect(x: center.x - size.width/2 + offsetX,
+                               y: center.y - size.height/2 + offsetY,
                                width: size.width,
                                height: size.height)
             v.frame = frame.integral
 
-            let isTop = (i == count - 1)
-            let angleDeg: CGFloat = isTop ? 0 : (baseAngles[i % baseAngles.count])
-            let angleRad = angleDeg * (.pi / 180)
-
-            v.layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            v.layer?.position = CGPoint(x: frame.midX, y: frame.midY)
-            v.layer?.transform = CATransform3DMakeRotation(angleRad, 0, 0, 1)
+            // AppKit сохраняет этот поворот при следующих layout-проходах.
+            // Прямой CALayer.transform мог сбрасываться после пакетного drop.
+            v.frameCenterRotation = angleDeg
 
             v.layer?.shadowOpacity = isTop ? 0.4 : 0.25
             v.layer?.zPosition = CGFloat(i)

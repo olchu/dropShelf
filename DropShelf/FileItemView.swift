@@ -19,7 +19,10 @@ final class FileItemView: NSView {
     init(fileURL: URL) {
         self.fileURL = fileURL
         super.init(frame: .zero)
-        translatesAutoresizingMaskIntoConstraints = false
+        // Положение и поворот карточки вручную задаёт OverlapStackView.
+        // Включённый Auto Layout без constraints мог сбрасывать frame,
+        // особенно при пакетном добавлении нескольких файлов.
+        translatesAutoresizingMaskIntoConstraints = true
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
         layer?.masksToBounds = false
