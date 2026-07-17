@@ -252,7 +252,10 @@ class ShelfViewController: NSViewController {
         overlapView.isHidden = true
         titleLabel.isHidden = true
         let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-        manageButton.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?.withSymbolConfiguration(cfg)
+        manageButton.image = NSImage(
+            systemSymbolName: "square.stack",
+            accessibilityDescription: "Show file stack"
+        )?.withSymbolConfiguration(cfg)
         manageButton.image?.isTemplate = true
     }
 
