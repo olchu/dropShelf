@@ -227,9 +227,9 @@ extension OverlapStackView {
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { !isLocalDragActive }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let urls = PasteboardImporter.importItems(from: sender.draggingPasteboard)
-        guard urls.isEmpty == false else { return false }
-        onFilesDropped?(urls)
-        return true
+        PasteboardImporter.importItems(from: sender.draggingPasteboard) { [weak self] urls in
+            guard urls.isEmpty == false else { return }
+            self?.onFilesDropped?(urls)
+        }
     }
 }

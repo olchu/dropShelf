@@ -27,9 +27,9 @@ class DropTargetView: NSView {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         guard !isLocalDrag(sender) else { return false }
-        let urls = PasteboardImporter.importItems(from: sender.draggingPasteboard)
-        guard urls.isEmpty == false else { return false }
-        onFilesDropped?(urls)
-        return true
+        return PasteboardImporter.importItems(from: sender.draggingPasteboard) { [weak self] urls in
+            guard urls.isEmpty == false else { return }
+            self?.onFilesDropped?(urls)
+        }
     }
 }
