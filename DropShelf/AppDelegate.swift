@@ -9,6 +9,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindowController: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        DiagnosticsLogger.shared.startSession()
+
         // Приложение только в статус-баре (без иконки в Dock)
         NSApplication.shared.setActivationPolicy(.accessory)
 
@@ -87,6 +89,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ","
         )
         settingsItem.target = self
+        let diagnosticsItem = menu.addItem(
+            withTitle: "Open Diagnostics Folder",
+            action: #selector(openDiagnosticsFolder),
+            keyEquivalent: ""
+        )
+        diagnosticsItem.target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit DropShelf", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem?.menu = menu
@@ -95,15 +103,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showSettings() {
+        DiagnosticsLogger.shared.info("Settings window requested")
         if settingsWindowController == nil {
             settingsWindowController = SettingsWindowController()
         }
         settingsWindowController?.present()
     }
 
+    @objc private func openDiagnosticsFolder() {
+        DiagnosticsLogger.shared.info("Diagnostics folder requested")
+        NSWorkspace.shared.open(DiagnosticsLogger.shared.directoryURL)
+    }
+
     @objc func toggleWindow() {
         guard let window = floatingWindow else { return }
         if window.isVisible {
+            DiagnosticsLogger.shared.info("Main panel hidden from status item")
             window.orderOut(nil)  // → panelDidHide → updateStatusHighlight(false)
         } else {
             showWindow()
@@ -122,6 +137,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let isNewPresentation = !window.isVisible
 
         if isNewPresentation {
+            DiagnosticsLogger.shared.info("Main panel presentation started; nearPointer=\(mouseLocation != nil)")
             shelfViewController?.prepareForWindowPresentation()
         }
 
@@ -162,6 +178,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func panelDidHide() {
+        DiagnosticsLogger.shared.info("Main panel did hide")
         shelfViewController?.closeThumbnailPanel()
         updateStatusHighlight(false)
         dragDetector?.startMonitoring()
@@ -169,6 +186,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ aNotification: Notification) {
         dragDetector?.stopMonitoring()
+        DiagnosticsLogger.shared.finishSession()
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
