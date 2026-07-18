@@ -155,6 +155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func panelDidHide() {
+        shelfViewController?.closeThumbnailPanel()
         updateStatusHighlight(false)
         dragDetector?.startMonitoring()
     }

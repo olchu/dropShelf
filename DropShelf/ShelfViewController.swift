@@ -15,6 +15,47 @@ private struct GlassPanel: View {
     }
 }
 
+@available(macOS 26.0, *)
+private struct ThumbnailPanelShape: Shape {
+    let cornerRadius: CGFloat
+    let pointerHeight: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path(
+            roundedRect: CGRect(
+                x: rect.minX,
+                y: rect.minY + pointerHeight,
+                width: rect.width,
+                height: rect.height - pointerHeight
+            ),
+            cornerRadius: cornerRadius
+        )
+        let pointerHalfWidth: CGFloat = 10
+        path.move(to: CGPoint(x: rect.midX - pointerHalfWidth, y: rect.minY + pointerHeight))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX + pointerHalfWidth, y: rect.minY + pointerHeight))
+        path.closeSubpath()
+        return path
+    }
+}
+
+@available(macOS 26.0, *)
+private struct ThumbnailPanelBackground: View {
+    let cornerRadius: CGFloat
+    let pointerHeight: CGFloat
+
+    var body: some View {
+        let shape = ThumbnailPanelShape(
+            cornerRadius: cornerRadius,
+            pointerHeight: pointerHeight
+        )
+        ZStack {
+            Color.clear.glassEffect(in: shape)
+            shape.fill(.black.opacity(0.50))
+        }
+    }
+}
+
 // Кнопка с привязанным URL для строк списка управления
 private class URLButton: NSButton {
     let fileURL: URL
@@ -175,7 +216,14 @@ class ShelfViewController: NSViewController {
     private let closeButtonInset: CGFloat = 38.0
     private let thumbnailCellSize = NSSize(width: 68, height: 74)
     private let thumbnailPanelPadding: CGFloat = 8
+    private let thumbnailTopPadding: CGFloat = 13
     private let thumbnailGridSpacing: CGFloat = 8
+    private let thumbnailPointerHeight: CGFloat = 8
+
+    func closeThumbnailPanel() {
+        guard isThumbnailDrawerOpen else { return }
+        setThumbnailDrawerOpen(false, animated: false)
+    }
 
     override func loadView() {
         self.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
@@ -367,7 +415,12 @@ class ShelfViewController: NSViewController {
         thumbnailPanel.contentView = background
 
         if #available(macOS 26.0, *) {
-            let glassHost = NSHostingView(rootView: GlassPanel(cornerRadius: 18))
+            let glassHost = NSHostingView(
+                rootView: ThumbnailPanelBackground(
+                    cornerRadius: 18,
+                    pointerHeight: thumbnailPointerHeight
+                )
+            )
             glassHost.frame = background.bounds
             glassHost.autoresizingMask = [.width, .height]
             background.addSubview(glassHost)
@@ -418,7 +471,7 @@ class ShelfViewController: NSViewController {
         thumbnailStack.alignment = .leading
         thumbnailStack.spacing = 8
         thumbnailStack.edgeInsets = NSEdgeInsets(
-            top: thumbnailPanelPadding,
+            top: 0,
             left: thumbnailPanelPadding,
             bottom: thumbnailPanelPadding,
             right: thumbnailPanelPadding
@@ -431,7 +484,10 @@ class ShelfViewController: NSViewController {
         thumbnailScrollView.documentView = documentView
 
         NSLayoutConstraint.activate([
-            thumbnailScrollView.topAnchor.constraint(equalTo: background.topAnchor),
+            thumbnailScrollView.topAnchor.constraint(
+                equalTo: background.topAnchor,
+                constant: thumbnailPointerHeight + thumbnailTopPadding
+            ),
             thumbnailScrollView.leadingAnchor.constraint(equalTo: background.leadingAnchor),
             thumbnailScrollView.trailingAnchor.constraint(equalTo: background.trailingAnchor),
             thumbnailScrollView.bottomAnchor.constraint(equalTo: thumbnailScrollFooter.topAnchor),
@@ -585,8 +641,10 @@ class ShelfViewController: NSViewController {
             + thumbnailPanelPadding * 2
         let height = CGFloat(visibleRowCount) * thumbnailCellSize.height
             + CGFloat(visibleRowCount - 1) * thumbnailGridSpacing
-            + thumbnailPanelPadding * 2
+            + thumbnailTopPadding
+            + thumbnailPanelPadding
             + (fileCount > columnCount * 2 ? 30 : 0)
+            + thumbnailPointerHeight
         return NSSize(width: width, height: height)
     }
 
