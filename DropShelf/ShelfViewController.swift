@@ -90,6 +90,14 @@ private final class ManageFileDragSurface: NSButton, NSDraggingSource {
     }
 }
 
+private final class FlippedStackView: NSStackView {
+    override var isFlipped: Bool { true }
+}
+
+private final class FlippedView: NSView {
+    override var isFlipped: Bool { true }
+}
+
 class ShelfViewController: NSViewController {
     private let accentColor = NSColor(srgbRed: 1, green: 56 / 255, blue: 60 / 255, alpha: 1)
     private var overlapView: OverlapStackView!
@@ -102,12 +110,22 @@ class ShelfViewController: NSViewController {
     private var clearButton: NSButton!
     private var manageScrollView: NSScrollView!
     private var manageStack: NSStackView!
-    private var countLabel: NSTextField!
+    private var countButton: NSButton!
+    private var thumbnailPanel: NSPanel!
+    private var thumbnailScrollView: NSScrollView!
+    private var thumbnailStack: NSStackView!
+    private var thumbnailScrollFooter: NSView!
+    private var thumbnailScrollFooterHeight: NSLayoutConstraint!
+    private var thumbnailScrollFooterLabel: NSTextField!
     private var isManaging = false
+    private var isThumbnailDrawerOpen = false
 
     private let cornerRadius: CGFloat = 20.0
     private let bottomBarHeight: CGFloat = 40.0
     private let closeButtonInset: CGFloat = 38.0
+    private let thumbnailCellSize = NSSize(width: 68, height: 74)
+    private let thumbnailPanelPadding: CGFloat = 8
+    private let thumbnailGridSpacing: CGFloat = 8
 
     override func loadView() {
         self.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
@@ -202,6 +220,7 @@ class ShelfViewController: NSViewController {
         ])
 
         setupBottomBar(in: dropTargetView)
+        setupThumbnailPanel()
         setupManageView(in: dropTargetView)
     }
 
@@ -242,15 +261,17 @@ class ShelfViewController: NSViewController {
             manageButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor)
         ])
 
-        countLabel = NSTextField(labelWithString: "")
-        countLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        countLabel.textColor = .secondaryLabelColor
-        countLabel.alignment = .center
-        countLabel.translatesAutoresizingMaskIntoConstraints = false
-        bottomBar.addSubview(countLabel)
+        countButton = NSButton(title: "", target: self, action: #selector(toggleThumbnailDrawer))
+        countButton.isBordered = false
+        countButton.font = .systemFont(ofSize: 12, weight: .medium)
+        countButton.contentTintColor = .secondaryLabelColor
+        countButton.imagePosition = .imageTrailing
+        countButton.imageHugsTitle = true
+        countButton.translatesAutoresizingMaskIntoConstraints = false
+        bottomBar.addSubview(countButton)
         NSLayoutConstraint.activate([
-            countLabel.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor),
-            countLabel.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor)
+            countButton.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor),
+            countButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor)
         ])
 
         bottomBar.isHidden = true
@@ -258,7 +279,382 @@ class ShelfViewController: NSViewController {
 
     private func updateCountLabel() {
         let n = fileItems.count
-        countLabel.stringValue = n == 1 ? "1 file" : "\(n) files"
+        countButton.title = n == 1 ? "1 file" : "\(n) files"
+        updateCountChevron()
+    }
+
+    private func updateCountChevron() {
+        let symbol = isThumbnailDrawerOpen ? "chevron.down" : "chevron.up"
+        let configuration = NSImage.SymbolConfiguration(pointSize: 9, weight: .semibold)
+        countButton.image = NSImage(
+            systemSymbolName: symbol,
+            accessibilityDescription: isThumbnailDrawerOpen ? "Hide file thumbnails" : "Show file thumbnails"
+        )?.withSymbolConfiguration(configuration)
+    }
+
+    private func setupThumbnailPanel() {
+        let panelSize = NSSize(width: 280, height: 200)
+        thumbnailPanel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: panelSize),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        thumbnailPanel.level = .statusBar
+        thumbnailPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        thumbnailPanel.isOpaque = false
+        thumbnailPanel.backgroundColor = .clear
+        thumbnailPanel.appearance = NSAppearance(named: .darkAqua)
+        thumbnailPanel.hasShadow = false
+        thumbnailPanel.isMovableByWindowBackground = false
+
+        let background = NSView(frame: NSRect(origin: .zero, size: panelSize))
+        background.wantsLayer = true
+        background.layer?.cornerRadius = 18
+        background.layer?.cornerCurve = .continuous
+        background.layer?.masksToBounds = true
+        background.autoresizingMask = [.width, .height]
+        thumbnailPanel.contentView = background
+
+        if #available(macOS 26.0, *) {
+            let glassHost = NSHostingView(rootView: GlassPanel(cornerRadius: 18))
+            glassHost.frame = background.bounds
+            glassHost.autoresizingMask = [.width, .height]
+            background.addSubview(glassHost)
+        } else {
+            let visualEffect = NSVisualEffectView(frame: background.bounds)
+            visualEffect.material = .popover
+            visualEffect.blendingMode = .behindWindow
+            visualEffect.state = .active
+            visualEffect.autoresizingMask = [.width, .height]
+            background.addSubview(visualEffect)
+
+            let darkOverlay = CALayer()
+            darkOverlay.backgroundColor = NSColor.black.withAlphaComponent(0.50).cgColor
+            darkOverlay.cornerRadius = 18
+            darkOverlay.cornerCurve = .continuous
+            darkOverlay.frame = NSRect(origin: .zero, size: panelSize)
+            darkOverlay.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+            background.layer?.addSublayer(darkOverlay)
+        }
+
+        thumbnailScrollView = NSScrollView()
+        thumbnailScrollView.translatesAutoresizingMaskIntoConstraints = false
+        thumbnailScrollView.drawsBackground = false
+        thumbnailScrollView.borderType = .noBorder
+        thumbnailScrollView.hasHorizontalScroller = false
+        thumbnailScrollView.hasVerticalScroller = false
+        thumbnailScrollView.scrollerStyle = .overlay
+        thumbnailScrollView.autohidesScrollers = true
+        thumbnailScrollView.verticalScrollElasticity = .automatic
+        background.addSubview(thumbnailScrollView)
+
+        thumbnailScrollFooter = NSView()
+        thumbnailScrollFooter.translatesAutoresizingMaskIntoConstraints = false
+        thumbnailScrollFooter.isHidden = true
+        background.addSubview(thumbnailScrollFooter)
+
+        let footerSeparator = NSView()
+        footerSeparator.translatesAutoresizingMaskIntoConstraints = false
+        footerSeparator.wantsLayer = true
+        footerSeparator.layer?.backgroundColor = accentColor.withAlphaComponent(0.45).cgColor
+        thumbnailScrollFooter.addSubview(footerSeparator)
+
+        thumbnailScrollFooterLabel = NSTextField(labelWithString: "Scroll to see more  ↓")
+        thumbnailScrollFooterLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        thumbnailScrollFooterLabel.textColor = accentColor
+        thumbnailScrollFooterLabel.alignment = .center
+        thumbnailScrollFooterLabel.translatesAutoresizingMaskIntoConstraints = false
+        thumbnailScrollFooter.addSubview(thumbnailScrollFooterLabel)
+
+        thumbnailScrollFooterHeight = thumbnailScrollFooter.heightAnchor.constraint(equalToConstant: 0)
+
+        thumbnailStack = FlippedStackView()
+        thumbnailStack.orientation = .vertical
+        thumbnailStack.alignment = .leading
+        thumbnailStack.spacing = 8
+        thumbnailStack.edgeInsets = NSEdgeInsets(
+            top: thumbnailPanelPadding,
+            left: thumbnailPanelPadding,
+            bottom: thumbnailPanelPadding,
+            right: thumbnailPanelPadding
+        )
+        thumbnailStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let documentView = FlippedView()
+        documentView.translatesAutoresizingMaskIntoConstraints = false
+        documentView.addSubview(thumbnailStack)
+        thumbnailScrollView.documentView = documentView
+
+        NSLayoutConstraint.activate([
+            thumbnailScrollView.topAnchor.constraint(equalTo: background.topAnchor),
+            thumbnailScrollView.leadingAnchor.constraint(equalTo: background.leadingAnchor),
+            thumbnailScrollView.trailingAnchor.constraint(equalTo: background.trailingAnchor),
+            thumbnailScrollView.bottomAnchor.constraint(equalTo: thumbnailScrollFooter.topAnchor),
+
+            thumbnailScrollFooter.leadingAnchor.constraint(equalTo: background.leadingAnchor),
+            thumbnailScrollFooter.trailingAnchor.constraint(equalTo: background.trailingAnchor),
+            thumbnailScrollFooter.bottomAnchor.constraint(equalTo: background.bottomAnchor),
+            thumbnailScrollFooterHeight,
+
+            footerSeparator.topAnchor.constraint(equalTo: thumbnailScrollFooter.topAnchor),
+            footerSeparator.leadingAnchor.constraint(equalTo: thumbnailScrollFooter.leadingAnchor, constant: 8),
+            footerSeparator.trailingAnchor.constraint(equalTo: thumbnailScrollFooter.trailingAnchor, constant: -8),
+            footerSeparator.heightAnchor.constraint(equalToConstant: 0.5),
+
+            thumbnailScrollFooterLabel.centerXAnchor.constraint(equalTo: thumbnailScrollFooter.centerXAnchor),
+            thumbnailScrollFooterLabel.centerYAnchor.constraint(equalTo: thumbnailScrollFooter.centerYAnchor, constant: 1),
+
+            documentView.topAnchor.constraint(equalTo: thumbnailScrollView.contentView.topAnchor),
+            documentView.leadingAnchor.constraint(equalTo: thumbnailScrollView.contentView.leadingAnchor),
+            documentView.widthAnchor.constraint(equalTo: thumbnailScrollView.contentView.widthAnchor),
+
+            thumbnailStack.topAnchor.constraint(equalTo: documentView.topAnchor),
+            thumbnailStack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
+            thumbnailStack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
+            thumbnailStack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor)
+        ])
+
+        thumbnailScrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(thumbnailScrollPositionDidChange),
+            name: NSView.boundsDidChangeNotification,
+            object: thumbnailScrollView.contentView
+        )
+
+        thumbnailPanel.orderOut(nil)
+    }
+
+    @objc private func thumbnailScrollPositionDidChange(_ notification: Notification) {
+        updateThumbnailScrollFooter()
+    }
+
+    private func updateThumbnailScrollFooter() {
+        guard !thumbnailScrollFooter.isHidden,
+              let documentView = thumbnailScrollView.documentView else { return }
+        let visibleBottom = thumbnailScrollView.contentView.bounds.maxY
+        let isAtBottom = visibleBottom >= documentView.bounds.height - 1
+        thumbnailScrollFooterLabel.stringValue = isAtBottom
+            ? "Scroll up to see more  ↑"
+            : "Scroll to see more  ↓"
+    }
+
+    @objc private func toggleThumbnailDrawer() {
+        setThumbnailDrawerOpen(!isThumbnailDrawerOpen, animated: true)
+    }
+
+    private func setThumbnailDrawerOpen(_ isOpen: Bool, animated: Bool) {
+        guard isOpen != isThumbnailDrawerOpen else { return }
+        isThumbnailDrawerOpen = isOpen
+        updateCountChevron()
+
+        if isOpen {
+            refreshThumbnailDrawer()
+            guard let parentWindow = view.window else { return }
+            let panelSize = thumbnailPanelSize(for: fileItems.count)
+            let finalFrame = NSRect(
+                x: parentWindow.frame.midX - panelSize.width / 2,
+                y: parentWindow.frame.minY - panelSize.height - 6,
+                width: panelSize.width,
+                height: panelSize.height
+            )
+            let startingFrame = finalFrame.offsetBy(dx: 0, dy: 8)
+            thumbnailPanel.setFrame(animated ? startingFrame : finalFrame, display: true)
+            parentWindow.addChildWindow(thumbnailPanel, ordered: .above)
+            thumbnailPanel.alphaValue = animated ? 0 : 1
+            thumbnailPanel.orderFront(nil)
+
+            guard animated else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.16
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                thumbnailPanel.animator().alphaValue = 1
+                thumbnailPanel.animator().setFrame(finalFrame, display: true)
+            }
+            return
+        }
+
+        guard animated else {
+            view.window?.removeChildWindow(thumbnailPanel)
+            thumbnailPanel.orderOut(nil)
+            thumbnailPanel.alphaValue = 1
+            return
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            thumbnailPanel.animator().alphaValue = 0
+            thumbnailPanel.animator().setFrame(
+                thumbnailPanel.frame.offsetBy(dx: 0, dy: 6),
+                display: true
+            )
+        } completionHandler: { [weak self] in
+            guard let self else { return }
+            self.view.window?.removeChildWindow(self.thumbnailPanel)
+            self.thumbnailPanel.orderOut(nil)
+            self.thumbnailPanel.alphaValue = 1
+        }
+    }
+
+    private func refreshThumbnailDrawer() {
+        thumbnailStack.arrangedSubviews.forEach {
+            thumbnailStack.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+
+        let columnCount = thumbnailColumnCount(for: fileItems.count)
+        let hasOverflow = fileItems.count > columnCount * 2
+        thumbnailScrollView.hasVerticalScroller = hasOverflow
+        thumbnailScrollFooter.isHidden = !hasOverflow
+        thumbnailScrollFooterHeight.constant = hasOverflow ? 30 : 0
+        thumbnailScrollFooterLabel.stringValue = "Scroll to see more  ↓"
+
+        for rowStart in stride(from: 0, to: fileItems.count, by: columnCount) {
+            let rowItems = Array(fileItems[rowStart..<min(rowStart + columnCount, fileItems.count)])
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.alignment = .top
+            row.distribution = .fill
+            row.spacing = thumbnailGridSpacing
+            row.translatesAutoresizingMaskIntoConstraints = false
+            row.heightAnchor.constraint(equalToConstant: thumbnailCellSize.height).isActive = true
+
+            for url in rowItems {
+                row.addArrangedSubview(makeThumbnailItem(for: url))
+            }
+
+            thumbnailStack.addArrangedSubview(row)
+            row.leadingAnchor.constraint(
+                equalTo: thumbnailStack.leadingAnchor,
+                constant: thumbnailPanelPadding
+            ).isActive = true
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.updateThumbnailScrollFooter()
+        }
+    }
+
+    private func thumbnailPanelSize(for fileCount: Int) -> NSSize {
+        let columnCount = thumbnailColumnCount(for: fileCount)
+        let totalRowCount = max(1, Int(ceil(Double(fileCount) / Double(columnCount))))
+        let visibleRowCount = min(totalRowCount, 2)
+        let width = CGFloat(columnCount) * thumbnailCellSize.width
+            + CGFloat(columnCount - 1) * thumbnailGridSpacing
+            + thumbnailPanelPadding * 2
+        let height = CGFloat(visibleRowCount) * thumbnailCellSize.height
+            + CGFloat(visibleRowCount - 1) * thumbnailGridSpacing
+            + thumbnailPanelPadding * 2
+            + (fileCount > columnCount * 2 ? 30 : 0)
+        return NSSize(width: width, height: height)
+    }
+
+    private func thumbnailColumnCount(for fileCount: Int) -> Int {
+        fileCount > 6 ? 4 : max(1, min(fileCount, 3))
+    }
+
+    private func resizeAndCenterThumbnailPanel(animated: Bool) {
+        guard isThumbnailDrawerOpen, let parentWindow = view.window else { return }
+        let panelSize = thumbnailPanelSize(for: fileItems.count)
+        let frame = NSRect(
+            x: parentWindow.frame.midX - panelSize.width / 2,
+            y: parentWindow.frame.minY - panelSize.height - 6,
+            width: panelSize.width,
+            height: panelSize.height
+        )
+
+        guard animated else {
+            thumbnailPanel.setFrame(frame, display: true)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.16
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            thumbnailPanel.animator().setFrame(frame, display: true)
+        }
+    }
+
+    private func makeThumbnailItem(for url: URL) -> NSView {
+        let item = NSView()
+        item.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            item.widthAnchor.constraint(equalToConstant: thumbnailCellSize.width),
+            item.heightAnchor.constraint(equalToConstant: thumbnailCellSize.height)
+        ])
+
+        let imageView = NSImageView()
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.wantsLayer = true
+        imageView.layer?.cornerRadius = 7
+        imageView.layer?.cornerCurve = .continuous
+        imageView.layer?.masksToBounds = true
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+
+        let webDestination = WebLocation.destination(for: url)
+        if webDestination != nil {
+            let configuration = NSImage.SymbolConfiguration(pointSize: 30, weight: .regular)
+            imageView.image = NSImage(
+                systemSymbolName: "globe",
+                accessibilityDescription: "Web link"
+            )?.withSymbolConfiguration(configuration)
+            imageView.image?.isTemplate = true
+            imageView.contentTintColor = accentColor
+        } else {
+            imageView.image = NSWorkspace.shared.icon(forFile: url.path)
+            let request = QLThumbnailGenerator.Request(
+                fileAt: url,
+                size: CGSize(width: 112, height: 112),
+                scale: 2,
+                representationTypes: .thumbnail
+            )
+            QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { thumbnail, _ in
+                guard let image = thumbnail?.nsImage else { return }
+                DispatchQueue.main.async { [weak imageView] in
+                    imageView?.image = image
+                }
+            }
+        }
+
+        let dragSurface = ManageFileDragSurface(fileURL: url)
+        dragSurface.translatesAutoresizingMaskIntoConstraints = false
+        dragSurface.toolTip = WebLocation.displayName(for: url)
+        dragSurface.onDragCompleted = { [weak self] draggedURL in
+            self?.removeFromManage(url: draggedURL)
+        }
+
+        let nameLabel = NSTextField(labelWithString: WebLocation.displayName(for: url))
+        nameLabel.font = .systemFont(ofSize: 9, weight: .regular)
+        nameLabel.textColor = .secondaryLabelColor
+        nameLabel.alignment = .center
+        nameLabel.lineBreakMode = .byTruncatingMiddle
+        nameLabel.maximumNumberOfLines = 1
+        nameLabel.cell?.wraps = false
+        nameLabel.cell?.isScrollable = false
+        nameLabel.toolTip = WebLocation.displayName(for: url)
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        item.addSubview(imageView)
+        item.addSubview(nameLabel)
+        item.addSubview(dragSurface)
+        NSLayoutConstraint.activate([
+            imageView.centerXAnchor.constraint(equalTo: item.centerXAnchor),
+            imageView.topAnchor.constraint(equalTo: item.topAnchor, constant: 2),
+            imageView.widthAnchor.constraint(equalToConstant: 54),
+            imageView.heightAnchor.constraint(equalToConstant: 54),
+
+            nameLabel.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 4),
+            nameLabel.leadingAnchor.constraint(equalTo: item.leadingAnchor, constant: 2),
+            nameLabel.trailingAnchor.constraint(equalTo: item.trailingAnchor, constant: -2),
+            nameLabel.bottomAnchor.constraint(equalTo: item.bottomAnchor, constant: -2),
+
+            dragSurface.leadingAnchor.constraint(equalTo: item.leadingAnchor),
+            dragSurface.trailingAnchor.constraint(equalTo: item.trailingAnchor),
+            dragSurface.topAnchor.constraint(equalTo: item.topAnchor),
+            dragSurface.bottomAnchor.constraint(equalTo: item.bottomAnchor)
+        ])
+        return item
     }
 
     private func setupManageView(in parent: NSView) {
@@ -311,6 +707,9 @@ class ShelfViewController: NSViewController {
     }
 
     private func enterManageMode() {
+        if isThumbnailDrawerOpen {
+            setThumbnailDrawerOpen(false, animated: true)
+        }
         isManaging = true
         refreshManageView()
         manageScrollView.isHidden = false
@@ -493,22 +892,36 @@ class ShelfViewController: NSViewController {
         overlapView.needsLayout = true
 
         updateCountLabel()
+        if isThumbnailDrawerOpen {
+            refreshThumbnailDrawer()
+            resizeAndCenterThumbnailPanel(animated: true)
+        }
         if isManaging { refreshManageView() }
     }
 
     private func removeFile(url: URL) {
         fileItems.removeAll { $0 == url }
         if fileItems.isEmpty {
+            if isThumbnailDrawerOpen {
+                setThumbnailDrawerOpen(false, animated: false)
+            }
             bottomBar.isHidden = true
             overlapView.isHidden = true
             titleLabel.isHidden = false
         } else {
             updateCountLabel()
+            if isThumbnailDrawerOpen {
+                refreshThumbnailDrawer()
+                resizeAndCenterThumbnailPanel(animated: true)
+            }
         }
     }
 
     private func clearAll() {
         fileItems.removeAll()
+        if isThumbnailDrawerOpen {
+            setThumbnailDrawerOpen(false, animated: false)
+        }
         overlapView.subviews.forEach { $0.removeFromSuperview() }
         overlapView.isHidden = true
         titleLabel.isHidden = false
