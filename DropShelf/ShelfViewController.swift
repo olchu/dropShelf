@@ -25,6 +25,71 @@ private class URLButton: NSButton {
     required init?(coder: NSCoder) { fatalError() }
 }
 
+private final class ManageFileDragSurface: NSButton, NSDraggingSource {
+    let fileURL: URL
+    var onDragCompleted: ((URL) -> Void)?
+
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+        super.init(frame: .zero)
+        isBordered = false
+        title = ""
+        image = nil
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        let draggingItem = NSDraggingItem(pasteboardWriter: fileURL as NSURL)
+        let image = dragImage()
+        let point = convert(event.locationInWindow, from: nil)
+        draggingItem.setDraggingFrame(
+            NSRect(
+                x: point.x - image.size.width / 2,
+                y: point.y - image.size.height / 2,
+                width: image.size.width,
+                height: image.size.height
+            ),
+            contents: image
+        )
+        let session = beginDraggingSession(with: [draggingItem], event: event, source: self)
+        session.animatesToStartingPositionsOnCancelOrFail = true
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        [.copy, .move]
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        endedAt screenPoint: NSPoint,
+        operation: NSDragOperation
+    ) {
+        if operation.isEmpty == false {
+            onDragCompleted?(fileURL)
+        }
+    }
+
+    func ignoreModifierKeys(for session: NSDraggingSession) -> Bool { true }
+
+    private func dragImage() -> NSImage {
+        if WebLocation.destination(for: fileURL) != nil,
+           let image = NSImage(systemSymbolName: "globe", accessibilityDescription: "Web link") {
+            return image.withSymbolConfiguration(
+                NSImage.SymbolConfiguration(pointSize: 32, weight: .regular)
+            ) ?? image
+        }
+        let image = NSWorkspace.shared.icon(forFile: fileURL.path)
+        image.size = NSSize(width: 40, height: 40)
+        return image
+    }
+}
+
 class ShelfViewController: NSViewController {
     private let accentColor = NSColor(srgbRed: 1, green: 56 / 255, blue: 60 / 255, alpha: 1)
     private var overlapView: OverlapStackView!
@@ -289,6 +354,12 @@ class ShelfViewController: NSViewController {
         row.translatesAutoresizingMaskIntoConstraints = false
         row.heightAnchor.constraint(equalToConstant: rowHeight).isActive = true
 
+        let dragSurface = ManageFileDragSurface(fileURL: url)
+        dragSurface.translatesAutoresizingMaskIntoConstraints = false
+        dragSurface.onDragCompleted = { [weak self] url in
+            self?.removeFromManage(url: url)
+        }
+
         let icon = NSImageView()
         icon.imageScaling = .scaleProportionallyUpOrDown
         icon.wantsLayer = true
@@ -348,9 +419,17 @@ class ShelfViewController: NSViewController {
 
         row.addSubview(icon)
         row.addSubview(label)
+        // Прозрачная поверхность находится поверх иконки и текста,
+        // поэтому тянуть можно за любую часть строки.
+        row.addSubview(dragSurface)
         row.addSubview(deleteBtn)
 
         NSLayoutConstraint.activate([
+            dragSurface.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            dragSurface.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            dragSurface.topAnchor.constraint(equalTo: row.topAnchor),
+            dragSurface.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+
             icon.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 10),
             icon.centerYAnchor.constraint(equalTo: row.centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: thumbSize),
@@ -370,7 +449,10 @@ class ShelfViewController: NSViewController {
     }
 
     @objc private func deleteFromManage(_ sender: URLButton) {
-        let url = sender.fileURL
+        removeFromManage(url: sender.fileURL)
+    }
+
+    private func removeFromManage(url: URL) {
         overlapView.subviews.compactMap { $0 as? FileItemView }
             .first { $0.fileURL == url }?.removeFromSuperview()
         overlapView.needsLayout = true
