@@ -225,6 +225,28 @@ class ShelfViewController: NSViewController {
         setThumbnailDrawerOpen(false, animated: false)
     }
 
+    func prepareForWindowPresentation() {
+        guard !fileItems.isEmpty, !isManaging else { return }
+        overlapView.alphaValue = 0
+        overlapView.isHidden = true
+    }
+
+    func completeWindowPresentation() {
+        guard !fileItems.isEmpty, !isManaging else { return }
+        overlapView.isHidden = false
+
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            overlapView.alphaValue = 1
+            return
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.08
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            overlapView.animator().alphaValue = 1
+        }
+    }
+
     override func loadView() {
         self.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
         setupUI()

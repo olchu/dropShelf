@@ -10,15 +10,17 @@ class FloatingPanelWindow: NSPanel {
     private let presentationDuration: TimeInterval = 0.26
     private let contentCornerRadius: CGFloat = 20
 
-    func presentAnimated() {
+    func presentAnimated(contentReveal: @escaping () -> Void = {}) {
         guard !isVisible else {
             orderFront(nil)
+            contentReveal()
             return
         }
 
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             alphaValue = 1
             orderFront(nil)
+            contentReveal()
             return
         }
 
@@ -52,6 +54,7 @@ class FloatingPanelWindow: NSPanel {
             animator().setFrame(overshootFrame, display: true)
         } completionHandler: { [weak self] in
             guard let self else { return }
+            contentReveal()
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = self.presentationDuration * 0.38
                 context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.7, 0.35, 1)

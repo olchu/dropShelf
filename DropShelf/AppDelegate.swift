@@ -119,6 +119,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showWindow(near mouseLocation: CGPoint? = nil) {
         guard let window = floatingWindow else { return }
+        let isNewPresentation = !window.isVisible
+
+        if isNewPresentation {
+            shelfViewController?.prepareForWindowPresentation()
+        }
 
         if let point = mouseLocation {
             let w = window.frame.width
@@ -150,7 +155,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        window.presentAnimated()
+        window.presentAnimated(contentReveal: { [weak self] in
+            self?.shelfViewController?.completeWindowPresentation()
+        })
         updateStatusHighlight(true)
     }
 
