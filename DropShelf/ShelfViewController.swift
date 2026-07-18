@@ -98,6 +98,56 @@ private final class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
+private final class ThumbnailScrollFooterView: NSView {
+    private let glowLayer = CAGradientLayer()
+    private let glowMaskLayer = CAGradientLayer()
+    private let lineLayer = CAGradientLayer()
+
+    init(accentColor: NSColor) {
+        super.init(frame: .zero)
+        wantsLayer = true
+
+        glowLayer.colors = [
+            accentColor.withAlphaComponent(0).cgColor,
+            accentColor.withAlphaComponent(0.10).cgColor
+        ]
+        glowLayer.locations = [0, 1]
+        glowLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        glowLayer.endPoint = CGPoint(x: 0.5, y: 1)
+
+        glowMaskLayer.colors = [
+            NSColor.clear.cgColor,
+            NSColor.white.cgColor,
+            NSColor.clear.cgColor
+        ]
+        glowMaskLayer.locations = [0, 0.5, 1]
+        glowMaskLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        glowMaskLayer.endPoint = CGPoint(x: 1, y: 0.5)
+        glowLayer.mask = glowMaskLayer
+
+        lineLayer.colors = [
+            accentColor.withAlphaComponent(0).cgColor,
+            accentColor.withAlphaComponent(0.85).cgColor,
+            accentColor.withAlphaComponent(0).cgColor
+        ]
+        lineLayer.locations = [0, 0.5, 1]
+        lineLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        lineLayer.endPoint = CGPoint(x: 1, y: 0.5)
+
+        layer?.addSublayer(glowLayer)
+        layer?.addSublayer(lineLayer)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layout() {
+        super.layout()
+        glowLayer.frame = bounds
+        glowMaskLayer.frame = glowLayer.bounds
+        lineLayer.frame = NSRect(x: 8, y: bounds.height - 1, width: max(0, bounds.width - 16), height: 1)
+    }
+}
+
 class ShelfViewController: NSViewController {
     private let accentColor = NSColor(srgbRed: 1, green: 56 / 255, blue: 60 / 255, alpha: 1)
     private var overlapView: OverlapStackView!
@@ -349,16 +399,10 @@ class ShelfViewController: NSViewController {
         thumbnailScrollView.verticalScrollElasticity = .automatic
         background.addSubview(thumbnailScrollView)
 
-        thumbnailScrollFooter = NSView()
+        thumbnailScrollFooter = ThumbnailScrollFooterView(accentColor: accentColor)
         thumbnailScrollFooter.translatesAutoresizingMaskIntoConstraints = false
         thumbnailScrollFooter.isHidden = true
         background.addSubview(thumbnailScrollFooter)
-
-        let footerSeparator = NSView()
-        footerSeparator.translatesAutoresizingMaskIntoConstraints = false
-        footerSeparator.wantsLayer = true
-        footerSeparator.layer?.backgroundColor = accentColor.withAlphaComponent(0.45).cgColor
-        thumbnailScrollFooter.addSubview(footerSeparator)
 
         thumbnailScrollFooterLabel = NSTextField(labelWithString: "Scroll to see more  ↓")
         thumbnailScrollFooterLabel.font = .systemFont(ofSize: 11, weight: .medium)
@@ -397,13 +441,8 @@ class ShelfViewController: NSViewController {
             thumbnailScrollFooter.bottomAnchor.constraint(equalTo: background.bottomAnchor),
             thumbnailScrollFooterHeight,
 
-            footerSeparator.topAnchor.constraint(equalTo: thumbnailScrollFooter.topAnchor),
-            footerSeparator.leadingAnchor.constraint(equalTo: thumbnailScrollFooter.leadingAnchor, constant: 8),
-            footerSeparator.trailingAnchor.constraint(equalTo: thumbnailScrollFooter.trailingAnchor, constant: -8),
-            footerSeparator.heightAnchor.constraint(equalToConstant: 0.5),
-
             thumbnailScrollFooterLabel.centerXAnchor.constraint(equalTo: thumbnailScrollFooter.centerXAnchor),
-            thumbnailScrollFooterLabel.centerYAnchor.constraint(equalTo: thumbnailScrollFooter.centerYAnchor, constant: 1),
+            thumbnailScrollFooterLabel.centerYAnchor.constraint(equalTo: thumbnailScrollFooter.centerYAnchor, constant: -1),
 
             documentView.topAnchor.constraint(equalTo: thumbnailScrollView.contentView.topAnchor),
             documentView.leadingAnchor.constraint(equalTo: thumbnailScrollView.contentView.leadingAnchor),
