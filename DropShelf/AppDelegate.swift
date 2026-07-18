@@ -150,7 +150,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        window.orderFront(nil)
+        window.presentAnimated()
         updateStatusHighlight(true)
     }
 
