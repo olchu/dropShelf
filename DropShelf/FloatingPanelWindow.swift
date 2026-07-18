@@ -23,6 +23,9 @@ class FloatingPanelWindow: NSPanel {
         // Прозрачный фон
         self.isOpaque = false
         self.backgroundColor = .clear
+        // Основная панель всегда использует тёмный материал, чтобы фирменный
+        // акцент #FF383C сохранял контраст независимо от темы macOS.
+        self.appearance = NSAppearance(named: .darkAqua)
         // У borderless-панели системная тень выглядит как тёмный бордер.
         // Матовость фона создаётся отдельно и от этой настройки не зависит.
         self.hasShadow = false
