@@ -15,6 +15,8 @@ class DragDetector {
     private var knownDragChangeCount: Int = NSPasteboard(name: .drag).changeCount
 
     func startMonitoring() {
+        guard eventMonitor == nil else { return }
+        reset()
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDragged, .leftMouseUp]) { [weak self] event in
             if event.type == .leftMouseUp {
                 self?.reset()
@@ -29,6 +31,12 @@ class DragDetector {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
         }
+    }
+
+    func restartMonitoring() {
+        stopMonitoring()
+        reset()
+        startMonitoring()
     }
 
     private func isFileDragging() -> Bool {

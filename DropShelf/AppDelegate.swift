@@ -68,6 +68,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: .floatingPanelDidHide,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(workspaceDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(workspaceSessionDidBecomeActive),
+            name: NSWorkspace.sessionDidBecomeActiveNotification,
+            object: nil
+        )
     }
 
     // MARK: - Actions
@@ -184,7 +196,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         dragDetector?.startMonitoring()
     }
 
+    @objc private func workspaceDidWake() {
+        restoreDragMonitoring(reason: "wake")
+    }
+
+    @objc private func workspaceSessionDidBecomeActive() {
+        restoreDragMonitoring(reason: "session active")
+    }
+
+    private func restoreDragMonitoring(reason: String) {
+        DiagnosticsLogger.shared.info("Restarting drag monitor after \(reason)")
+        dragDetector?.restartMonitoring()
+    }
+
     func applicationWillTerminate(_ aNotification: Notification) {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         dragDetector?.stopMonitoring()
         DiagnosticsLogger.shared.finishSession()
     }

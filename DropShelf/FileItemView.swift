@@ -1,4 +1,5 @@
 import Cocoa
+import QuickLookThumbnailing
 
 /// Превью файла: только изображение по центру с белой рамкой 2pt.
 /// НЕ инициирует drag сам — drag всегда запускает OverlapStackView.
@@ -10,6 +11,8 @@ final class FileItemView: NSView {
     private let maxPreviewSide: CGFloat = 120
 
     private(set) var dragSnapshot: NSImage?
+    private var previewTask: Task<Void, Never>?
+    private var hasLoadedPreview = false
 
     private var cachedIntrinsic: NSSize = NSSize(width: 120, height: 120) {
         didSet { invalidateIntrinsicContentSize() }
@@ -32,6 +35,10 @@ final class FileItemView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    deinit {
+        previewTask?.cancel()
+    }
 
     private func setupUI() {
         imageView.imageScaling = .scaleProportionallyUpOrDown
@@ -75,16 +82,52 @@ final class FileItemView: NSView {
             return
         }
 
-        let previewImage: NSImage?  = NSImage(contentsOf: fileURL)
-        let isIcon = previewImage == nil
-        let image = previewImage ?? NSWorkspace.shared.icon(forFile: fileURL.path)
+        // Never decode the original file on the main thread. Large images and
+        // batches of files otherwise make the whole panel unresponsive.
+        let placeholder = NSWorkspace.shared.icon(forFile: fileURL.path)
+        imageView.image = placeholder
+        applyImageSize(NSSize(width: maxPreviewSide, height: maxPreviewSide))
+    }
 
-        let fitted = isIcon
-            ? NSSize(width: maxPreviewSide, height: maxPreviewSide)
-            : fittedSize(for: image.size, maxSide: maxPreviewSide)
+    func setPreviewVisible(_ isVisible: Bool) {
+        guard WebLocation.destination(for: fileURL) == nil else { return }
+        if isVisible {
+            loadQuickLookPreviewIfNeeded()
+        } else if !hasLoadedPreview {
+            previewTask?.cancel()
+        }
+    }
 
-        imageView.image = image
-        applyImageSize(fitted)
+    private func loadQuickLookPreviewIfNeeded() {
+        guard !hasLoadedPreview, previewTask == nil else { return }
+        let request = QLThumbnailGenerator.Request(
+            fileAt: fileURL,
+            size: CGSize(width: maxPreviewSide * 2, height: maxPreviewSide * 2),
+            scale: 2,
+            representationTypes: .thumbnail
+        )
+        previewTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let representation = try await QLThumbnailGenerator.shared
+                    .generateBestRepresentation(for: request)
+                try Task.checkCancellation()
+                let image = representation.nsImage
+                imageView.image = image
+                applyImageSize(fittedSize(for: image.size, maxSide: maxPreviewSide))
+                hasLoadedPreview = true
+                previewTask = nil
+            } catch is CancellationError {
+                previewTask = nil
+                if !isHidden {
+                    loadQuickLookPreviewIfNeeded()
+                }
+                return
+            } catch {
+                // The file icon is already a useful fallback.
+                previewTask = nil
+            }
+        }
     }
 
     private func applyImageSize(_ fitted: NSSize) {
@@ -101,7 +144,9 @@ final class FileItemView: NSView {
         needsLayout = true
         layoutSubtreeIfNeeded()
 
-        DispatchQueue.main.async { [weak self] in
+        guard superview != nil, !isHidden else { return }
+        Task { @MainActor [weak self] in
+            await Task.yield()
             self?.cacheDragSnapshot()
         }
     }

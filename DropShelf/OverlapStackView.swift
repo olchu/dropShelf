@@ -73,10 +73,15 @@ final class OverlapStackView: NSView, NSDraggingSource {
         let center = CGPoint(x: bounds.midX, y: bounds.midY - 16)
 
         if all.count > visible.count {
-            for v in all.dropLast(visible.count) { v.isHidden = true }
+            for v in all.dropLast(visible.count) {
+                v.isHidden = true
+                (v as? FileItemView)?.setPreviewVisible(false)
+            }
         }
 
         for (i, v) in visible.enumerated() {
+            v.isHidden = false
+            (v as? FileItemView)?.setPreviewVisible(true)
             let size = v.intrinsicContentSize == .zero ? v.bounds.size : v.intrinsicContentSize
             let isTop = (i == count - 1)
             let angleDeg: CGFloat = isTop ? 0 : (baseAngles[i % baseAngles.count])
@@ -161,9 +166,9 @@ final class OverlapStackView: NSView, NSDraggingSource {
     }
 
     private func beginGroupDrag(event: NSEvent) {
-        isLocalDragActive = true
         let itemsViews = subviews.compactMap { $0 as? FileItemView }
         guard !itemsViews.isEmpty else { return }
+        isLocalDragActive = true
 
         var draggingItems: [NSDraggingItem] = []
         draggingItems.reserveCapacity(itemsViews.count)
@@ -173,7 +178,7 @@ final class OverlapStackView: NSView, NSDraggingSource {
             let writer = v.fileURL as NSURL
             let di = NSDraggingItem(pasteboardWriter: writer)
 
-            let img = v.dragSnapshot ?? snapshot(of: v)
+            let img = dragImage(for: v)
 
             let spread: CGFloat = 6
             let frame = NSRect(
@@ -191,13 +196,30 @@ final class OverlapStackView: NSView, NSDraggingSource {
         session.draggingFormation = .pile
     }
 
-    private func snapshot(of view: NSView) -> NSImage {
+    private func dragImage(for view: FileItemView) -> NSImage {
+        if let cachedImage = view.dragSnapshot {
+            return cachedImage
+        }
+
+        if let snapshot = snapshot(of: view) {
+            return snapshot
+        }
+
+        // Hidden cards in a newly added group may not have been laid out yet.
+        // They still participate in the group drag, so use a file icon instead
+        // of trying to create a bitmap with zero dimensions.
+        let icon = NSWorkspace.shared.icon(forFile: view.fileURL.path)
+        icon.size = NSSize(width: 40, height: 40)
+        return icon
+    }
+
+    private func snapshot(of view: NSView) -> NSImage? {
         let size = view.bounds.size
-        let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) ?? NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
-            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
-        )!
+        guard size.width.isFinite, size.height.isFinite,
+              size.width > 0, size.height > 0,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+            return nil
+        }
         view.cacheDisplay(in: view.bounds, to: rep)
         let img = NSImage(size: size)
         img.addRepresentation(rep)

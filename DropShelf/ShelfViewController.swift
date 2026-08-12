@@ -193,7 +193,12 @@ class ShelfViewController: NSViewController {
     private let accentColor = NSColor(srgbRed: 1, green: 56 / 255, blue: 60 / 255, alpha: 1)
     private var overlapView: OverlapStackView!
     private var titleLabel: NSTextField!
+    private var importStatusLabel: NSTextField!
     private var fileItems: [URL] = []
+    private var queuedFileURLs: [URL] = []
+    private var queuedFileIndex = 0
+    private var importTask: Task<Void, Never>?
+    private var importGeneration = 0
 
     private var closeButton: CloseButton!
     private var bottomBar: NSView!
@@ -303,6 +308,26 @@ class ShelfViewController: NSViewController {
             titleLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
 
+        importStatusLabel = NSTextField(labelWithString: "")
+        importStatusLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        importStatusLabel.textColor = .labelColor
+        importStatusLabel.alignment = .center
+        importStatusLabel.wantsLayer = true
+        importStatusLabel.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
+        importStatusLabel.layer?.cornerRadius = 8
+        importStatusLabel.translatesAutoresizingMaskIntoConstraints = false
+        importStatusLabel.isHidden = true
+        dropTargetView.addSubview(importStatusLabel)
+        NSLayoutConstraint.activate([
+            importStatusLabel.centerXAnchor.constraint(equalTo: dropTargetView.centerXAnchor),
+            importStatusLabel.bottomAnchor.constraint(
+                equalTo: dropTargetView.bottomAnchor,
+                constant: -(bottomBarHeight + 8)
+            ),
+            importStatusLabel.heightAnchor.constraint(equalToConstant: 24),
+            importStatusLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 120)
+        ])
+
         // Стопка превью — не перекрывает нижний тулбар
         overlapView = OverlapStackView(frame: .zero)
         overlapView.translatesAutoresizingMaskIntoConstraints = false
@@ -342,6 +367,7 @@ class ShelfViewController: NSViewController {
         setupBottomBar(in: dropTargetView)
         setupThumbnailPanel()
         setupManageView(in: dropTargetView)
+        dropTargetView.addSubview(importStatusLabel, positioned: .above, relativeTo: nil)
     }
 
     private func setupBottomBar(in parent: NSView) {
@@ -989,14 +1015,39 @@ class ShelfViewController: NSViewController {
     // MARK: - Files
 
     private func addFiles(_ urls: [URL]) {
-        for url in urls {
-            addFile(url: url)
+        guard !isManaging else { return }
+        let newURLs = urls.filter { url in
+            !fileItems.contains(url) && !queuedFileURLs[queuedFileIndex...].contains(url)
         }
+        guard !newURLs.isEmpty else { return }
 
-        // Один drop может содержать сразу несколько URL. Завершаем ручной
-        // layout всей стопки после добавления группы, чтобы углы применились
-        // ко всем карточкам в одном проходе.
-        overlapView.layoutSubtreeIfNeeded()
+        queuedFileURLs.append(contentsOf: newURLs)
+        updateImportStatus()
+        guard importTask == nil else { return }
+
+        importGeneration += 1
+        let generation = importGeneration
+        DiagnosticsLogger.shared.info("Queued \(queuedFileURLs.count) local files for import")
+        importTask = Task { [weak self] in
+            guard let self else { return }
+            while generation == importGeneration,
+                  queuedFileIndex < queuedFileURLs.count {
+                guard !Task.isCancelled else { return }
+                let url = queuedFileURLs[queuedFileIndex]
+                queuedFileIndex += 1
+                addFile(url: url)
+                updateImportStatus()
+
+                // Let AppKit draw progress and handle mouse events between
+                // small chunks of a large drop.
+                if queuedFileIndex.isMultiple(of: 6) {
+                    try? await Task.sleep(for: .milliseconds(8))
+                } else {
+                    await Task.yield()
+                }
+            }
+            finishImportQueue(generation: generation)
+        }
     }
 
     private func addFile(url: URL) {
@@ -1018,6 +1069,25 @@ class ShelfViewController: NSViewController {
         if isManaging { refreshManageView() }
     }
 
+    private func updateImportStatus() {
+        let total = queuedFileURLs.count
+        let completed = min(queuedFileIndex, total)
+        importStatusLabel.stringValue = completed == 0
+            ? "Preparing \(total) files…"
+            : "Adding \(completed) of \(total)…"
+        importStatusLabel.isHidden = false
+    }
+
+    private func finishImportQueue(generation: Int) {
+        guard generation == importGeneration else { return }
+        queuedFileURLs.removeAll(keepingCapacity: false)
+        queuedFileIndex = 0
+        importTask = nil
+        importStatusLabel.isHidden = true
+        overlapView.layoutSubtreeIfNeeded()
+        DiagnosticsLogger.shared.info("Local file import finished")
+    }
+
     private func removeFile(url: URL) {
         fileItems.removeAll { $0 == url }
         if fileItems.isEmpty {
@@ -1037,6 +1107,12 @@ class ShelfViewController: NSViewController {
     }
 
     private func clearAll() {
+        importGeneration += 1
+        importTask?.cancel()
+        importTask = nil
+        queuedFileURLs.removeAll(keepingCapacity: false)
+        queuedFileIndex = 0
+        importStatusLabel.isHidden = true
         fileItems.removeAll()
         if isThumbnailDrawerOpen {
             setThumbnailDrawerOpen(false, animated: false)
